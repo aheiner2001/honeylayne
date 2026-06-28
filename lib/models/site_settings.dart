@@ -33,6 +33,7 @@ class SiteSettings {
   // ---- Footer ----
   final String footerTagline;
   final List<FooterColumn> footerColumns;
+  final List<SocialLink> footerSocials;
 
   // ---- Header decorations (manager-uploadable PNGs) ----
   final String headerLeftImageUrl; // bees / top-left
@@ -43,6 +44,10 @@ class SiteSettings {
   /// Password required (in addition to Google sign-in) to open the studio.
   /// Editable from Manager settings. Defaults to 'honeybee'.
   final String managerPassword;
+
+  /// Google emails that have already entered the access code once. They can
+  /// sign in afterwards without re-entering it.
+  final List<String> approvedManagerEmails;
 
   // Kept for backwards compatibility with older saved data.
   final String storyText;
@@ -72,10 +77,12 @@ class SiteSettings {
     this.contactPhone = '',
     this.footerTagline = 'Romantic pieces made\nto make you feel beautiful.',
     this.footerColumns = defaultFooterColumns,
+    this.footerSocials = defaultSocials,
     this.headerLeftImageUrl = 'assets/images/bees_trail.png',
     this.headerRightImageUrl = 'assets/images/floral_topright.png',
     this.headerShopIconUrl = 'assets/images/shop_icon.png',
     this.managerPassword = 'honeybee',
+    this.approvedManagerEmails = const [],
     this.storyText = '',
   });
 
@@ -108,6 +115,13 @@ class SiteSettings {
     FeatureItem(icon: 'heart', text: 'Made to make you feel beautiful inside and out'),
     FeatureItem(icon: 'flower', text: 'Inspired by nature, flowers, and sunny days'),
     FeatureItem(icon: 'bag', text: 'Thoughtful details in every piece'),
+  ];
+
+  static const defaultSocials = [
+    SocialLink(icon: 'instagram', url: 'https://www.instagram.com/_honeylayne/'),
+    SocialLink(icon: 'email', url: 'mailto:hello@honeylayne.shop'),
+    SocialLink(icon: 'heart', url: '/shop'),
+    SocialLink(icon: 'mail', url: '/contact'),
   ];
 
   static const defaultFooterColumns = [
@@ -169,10 +183,12 @@ class SiteSettings {
     String? contactPhone,
     String? footerTagline,
     List<FooterColumn>? footerColumns,
+    List<SocialLink>? footerSocials,
     String? headerLeftImageUrl,
     String? headerRightImageUrl,
     String? headerShopIconUrl,
     String? managerPassword,
+    List<String>? approvedManagerEmails,
   }) =>
       SiteSettings(
         navEnabled: navEnabled ?? this.navEnabled,
@@ -196,10 +212,13 @@ class SiteSettings {
         contactPhone: contactPhone ?? this.contactPhone,
         footerTagline: footerTagline ?? this.footerTagline,
         footerColumns: footerColumns ?? this.footerColumns,
+        footerSocials: footerSocials ?? this.footerSocials,
         headerLeftImageUrl: headerLeftImageUrl ?? this.headerLeftImageUrl,
         headerRightImageUrl: headerRightImageUrl ?? this.headerRightImageUrl,
         headerShopIconUrl: headerShopIconUrl ?? this.headerShopIconUrl,
         managerPassword: managerPassword ?? this.managerPassword,
+        approvedManagerEmails:
+            approvedManagerEmails ?? this.approvedManagerEmails,
       );
 
   Map<String, dynamic> toJson() => {
@@ -224,10 +243,12 @@ class SiteSettings {
         'contactPhone': contactPhone,
         'footerTagline': footerTagline,
         'footerColumns': footerColumns.map((c) => c.toJson()).toList(),
+        'footerSocials': footerSocials.map((s) => s.toJson()).toList(),
         'headerLeftImageUrl': headerLeftImageUrl,
         'headerRightImageUrl': headerRightImageUrl,
         'headerShopIconUrl': headerShopIconUrl,
         'managerPassword': managerPassword,
+        'approvedManagerEmails': approvedManagerEmails,
       };
 
   factory SiteSettings.fromJson(Map<String, dynamic> j) {
@@ -238,6 +259,9 @@ class SiteSettings {
         .toList();
     final cols = (j['footerColumns'] as List?)
         ?.map((e) => FooterColumn.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+    final socials = (j['footerSocials'] as List?)
+        ?.map((e) => SocialLink.fromJson((e as Map).cast<String, dynamic>()))
         .toList();
     final defaults = SiteSettings.initial();
     return SiteSettings(
@@ -264,6 +288,7 @@ class SiteSettings {
       contactPhone: j['contactPhone'] as String? ?? defaults.contactPhone,
       footerTagline: j['footerTagline'] as String? ?? defaults.footerTagline,
       footerColumns: (cols == null || cols.isEmpty) ? defaultFooterColumns : cols,
+      footerSocials: socials ?? defaultSocials,
       headerLeftImageUrl: (j['headerLeftImageUrl'] as String?)?.isNotEmpty == true
           ? j['headerLeftImageUrl'] as String
           : defaults.headerLeftImageUrl,
@@ -277,6 +302,10 @@ class SiteSettings {
       managerPassword: (j['managerPassword'] as String?)?.isNotEmpty == true
           ? j['managerPassword'] as String
           : defaults.managerPassword,
+      approvedManagerEmails: (j['approvedManagerEmails'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
     );
   }
 }
@@ -330,5 +359,41 @@ class FooterColumn {
                     : FooterLink(label: e.toString()))
                 .toList() ??
             const [],
+      );
+}
+
+/// A footer social icon: an [icon] key, a destination [url] (internal route or
+/// external link), and whether it's shown. Each is individually toggleable.
+class SocialLink {
+  final String icon; // key: instagram | email | heart | mail | phone | facebook | link | shop
+  final String url;
+  final bool enabled;
+  const SocialLink({required this.icon, this.url = '', this.enabled = true});
+
+  /// Icon keys the manager can choose from.
+  static const iconKeys = [
+    'instagram',
+    'email',
+    'mail',
+    'heart',
+    'phone',
+    'facebook',
+    'shop',
+    'link',
+  ];
+
+  SocialLink copyWith({String? icon, String? url, bool? enabled}) => SocialLink(
+        icon: icon ?? this.icon,
+        url: url ?? this.url,
+        enabled: enabled ?? this.enabled,
+      );
+
+  Map<String, dynamic> toJson() =>
+      {'icon': icon, 'url': url, 'enabled': enabled};
+
+  factory SocialLink.fromJson(Map<String, dynamic> j) => SocialLink(
+        icon: j['icon'] as String? ?? 'link',
+        url: j['url'] as String? ?? '',
+        enabled: j['enabled'] as bool? ?? true,
       );
 }

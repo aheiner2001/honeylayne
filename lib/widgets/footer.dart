@@ -34,16 +34,19 @@ class SiteFooter extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _Social(Icons.camera_alt_outlined,
-                  onTap: settings.contactInstagram.isEmpty
+              for (final s in settings.footerSocials.where((s) => s.enabled))
+                _Social(
+                  socialIcon(s.icon),
+                  onTap: s.url.isEmpty
                       ? null
-                      : () => _open(settings.contactInstagram)),
-              _Social(Icons.alternate_email,
-                  onTap: settings.contactEmail.isEmpty
-                      ? null
-                      : () => _open('mailto:${settings.contactEmail}')),
-              _Social(Icons.favorite_border, onTap: () => context.go('/shop')),
-              _Social(Icons.mail_outline, onTap: () => context.go('/contact')),
+                      : () {
+                          if (s.url.startsWith('/')) {
+                            context.go(s.url);
+                          } else {
+                            _open(s.url);
+                          }
+                        },
+                ),
             ],
           ),
         ],
@@ -165,6 +168,29 @@ class _FooterLinkTextState extends State<_FooterLinkText> {
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(onTap: _go, child: text),
     );
+  }
+}
+
+/// Maps a [SocialLink] icon key to a Material icon.
+IconData socialIcon(String key) {
+  switch (key) {
+    case 'instagram':
+      return Icons.camera_alt_outlined;
+    case 'email':
+      return Icons.alternate_email;
+    case 'mail':
+      return Icons.mail_outline;
+    case 'heart':
+      return Icons.favorite_border;
+    case 'phone':
+      return Icons.phone_outlined;
+    case 'facebook':
+      return Icons.facebook;
+    case 'shop':
+      return Icons.shopping_bag_outlined;
+    case 'link':
+    default:
+      return Icons.link;
   }
 }
 

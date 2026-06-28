@@ -70,7 +70,7 @@ class SiteHeader extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(24, compact ? 14 : 18, 24, compact ? 14 : 20),
+              padding: EdgeInsets.fromLTRB(24, compact ? 22 : 34, 24, compact ? 22 : 34),
               child: Column(
                 children: [
                   // Cursive wordmark with a little heart.

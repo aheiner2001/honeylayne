@@ -8,6 +8,7 @@ import '../models/product.dart';
 import '../models/site_settings.dart';
 import '../theme/honey_theme.dart';
 import '../widgets/product_image.dart';
+import '../widgets/footer.dart' show socialIcon;
 import 'about_page.dart' show featureIcon;
 
 class ManagerPage extends StatelessWidget {
@@ -40,16 +41,26 @@ class _PasswordGateState extends State<_PasswordGate> {
 
   Future<void> _signInGoogle() async {
     final store = context.read<HoneyStore>();
-    // Require the access password before opening the Google popup.
-    if (!store.checkManagerPassword(_gatePw.text)) {
-      setState(() => _error = 'Incorrect access password.');
-      return;
-    }
     setState(() {
       _busy = true;
       _error = null;
     });
     final err = await store.signInWithGoogle();
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _error = err;
+    });
+  }
+
+  // First time on this account: enter the access code once to authorize it.
+  Future<void> _authorize() async {
+    final store = context.read<HoneyStore>();
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final err = await store.approveCurrentManager(_gatePw.text);
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -64,7 +75,7 @@ class _PasswordGateState extends State<_PasswordGate> {
 
   @override
   Widget build(BuildContext context) {
-    final store = context.read<HoneyStore>();
+    final store = context.watch<HoneyStore>();
     return Center(
       child: SingleChildScrollView(
         child: Container(
@@ -119,18 +130,28 @@ class _PasswordGateState extends State<_PasswordGate> {
     );
   }
 
-  // Access password + Google sign-in (used when Firebase is configured).
-  List<Widget> _googleForm() => [
-        Text('Enter the access password, then sign in with Google.',
-            textAlign: TextAlign.center,
-            style: HoneyTheme.sans(size: 13, color: HoneyColors.textSoft)),
+  // Google sign-in when Firebase is configured. The access code is only asked
+  // for the first time an account signs in; after that it's remembered.
+  List<Widget> _googleForm() {
+    final store = context.watch<HoneyStore>();
+
+    // Signed in, but this email hasn't been authorized yet → ask for the code.
+    if (store.needsApproval) {
+      return [
+        Text(
+          'Signed in as ${store.managerEmail ?? ''}.\n'
+          'Enter the access code once to authorize this account.',
+          textAlign: TextAlign.center,
+          style: HoneyTheme.sans(size: 13, color: HoneyColors.textSoft),
+        ),
         const SizedBox(height: 16),
         TextField(
           controller: _gatePw,
           obscureText: true,
-          onSubmitted: (_) => _signInGoogle(),
+          autofocus: true,
+          onSubmitted: (_) => _authorize(),
           decoration: InputDecoration(
-            hintText: 'Access password',
+            hintText: 'Access code',
             filled: true,
             fillColor: HoneyColors.cream,
             border: OutlineInputBorder(
@@ -142,8 +163,29 @@ class _PasswordGateState extends State<_PasswordGate> {
         if (_busy)
           const _Spinner()
         else
-          _GoogleButton(onTap: _signInGoogle),
+          _PinkButton(label: 'AUTHORIZE', onTap: _authorize),
+        const SizedBox(height: 6),
+        TextButton(
+          onPressed: () => context.read<HoneyStore>().lock(),
+          child: Text('Use a different account',
+              style: HoneyTheme.sans(size: 13, color: HoneyColors.pink)),
+        ),
       ];
+    }
+
+    // Not signed in yet → just offer Google. Returning approved accounts skip
+    // the code entirely.
+    return [
+      Text('Sign in with Google to manage your store.',
+          textAlign: TextAlign.center,
+          style: HoneyTheme.sans(size: 13, color: HoneyColors.textSoft)),
+      const SizedBox(height: 16),
+      if (_busy)
+        const _Spinner()
+      else
+        _GoogleButton(onTap: _signInGoogle),
+    ];
+  }
 
   // Simple build-time password (used when Firebase isn't configured).
   List<Widget> _legacyForm() => [
@@ -1122,6 +1164,42 @@ class _FooterEditorState extends State<_FooterEditor> {
           text: c.links.map(_linkToLine).join('\n')),
   ];
 
+  // Social icons — individually toggleable, with editable icon + link.
+  late final List<SocialLink> _socials = [...widget.settings.footerSocials];
+  late final List<TextEditingController> _socialUrls = [
+    for (final s in widget.settings.footerSocials)
+      TextEditingController(text: s.url),
+  ];
+
+  @override
+  void dispose() {
+    _tagline.dispose();
+    for (final c in _titles) {
+      c.dispose();
+    }
+    for (final c in _links) {
+      c.dispose();
+    }
+    for (final c in _socialUrls) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void _addSocial() {
+    setState(() {
+      _socials.add(const SocialLink(icon: 'link'));
+      _socialUrls.add(TextEditingController());
+    });
+  }
+
+  void _removeSocial(int i) {
+    setState(() {
+      _socials.removeAt(i);
+      _socialUrls.removeAt(i).dispose();
+    });
+  }
+
   static String _linkToLine(FooterLink l) =>
       l.url.isEmpty ? l.label : '${l.label} | ${l.url}';
 
@@ -1146,9 +1224,14 @@ class _FooterEditorState extends State<_FooterEditor> {
               .toList(),
         ),
     ];
+    final socials = [
+      for (var i = 0; i < _socials.length; i++)
+        _socials[i].copyWith(url: _socialUrls[i].text.trim()),
+    ];
     store.updateSettings(store.settings.copyWith(
       footerTagline: _tagline.text,
       footerColumns: cols,
+      footerSocials: socials,
     ));
     _toast(context);
   }
@@ -1188,6 +1271,83 @@ class _FooterEditorState extends State<_FooterEditor> {
                 ),
               ),
           ],
+        ),
+        const SizedBox(height: 24),
+        const Divider(height: 1),
+        const SizedBox(height: 18),
+        Text('Social icons',
+            style: HoneyTheme.serif(
+                size: 18, color: HoneyColors.pinkDeep, weight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        Text(
+          'The little icons under the logo. Toggle each on/off, pick an icon, and '
+          'set where it goes — an outside link (https://…, mailto:you@…) or a page '
+          'on this site (/shop, /contact).',
+          style: HoneyTheme.sans(size: 12, color: HoneyColors.textSoft),
+        ),
+        const SizedBox(height: 12),
+        for (var i = 0; i < _socials.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Switch(
+                  value: _socials[i].enabled,
+                  activeThumbColor: HoneyColors.pinkDeep,
+                  onChanged: (v) =>
+                      setState(() => _socials[i] = _socials[i].copyWith(enabled: v)),
+                ),
+                const SizedBox(width: 4),
+                DropdownButton<String>(
+                  value: SocialLink.iconKeys.contains(_socials[i].icon)
+                      ? _socials[i].icon
+                      : 'link',
+                  underline: const SizedBox.shrink(),
+                  items: [
+                    for (final key in SocialLink.iconKeys)
+                      DropdownMenuItem(
+                        value: key,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(socialIcon(key),
+                                size: 18, color: HoneyColors.pink),
+                            const SizedBox(width: 8),
+                            Text(key,
+                                style: HoneyTheme.sans(
+                                    size: 13, color: HoneyColors.text)),
+                          ],
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) => setState(
+                      () => _socials[i] = _socials[i].copyWith(icon: v)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _Field(
+                    controller: _socialUrls[i],
+                    label: 'Link (https://… , mailto:… , or /shop)',
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Remove',
+                  icon: const Icon(Icons.delete_outline,
+                      color: HoneyColors.textSoft),
+                  onPressed: () => _removeSocial(i),
+                ),
+              ],
+            ),
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _addSocial,
+            icon: const Icon(Icons.add, size: 18, color: HoneyColors.pinkDeep),
+            label: Text('Add icon',
+                style: HoneyTheme.sans(
+                    size: 13, color: HoneyColors.pinkDeep, weight: FontWeight.w600)),
+          ),
         ),
         const SizedBox(height: 14),
         Align(

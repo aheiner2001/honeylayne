@@ -20,7 +20,7 @@ class HoneyStore extends ChangeNotifier {
   HoneyStore(this._backend, {this.authEnabled = false}) {
     if (authEnabled) {
       FirebaseAuth.instance.authStateChanges().listen((user) {
-        _managerUnlocked = user != null;
+        _signedIn = user != null;
         _managerEmail = user?.email;
         notifyListeners();
       });
@@ -36,16 +36,40 @@ class HoneyStore extends ChangeNotifier {
 
   List<Product> _products = List.of(seedProducts);
   SiteSettings _settings = SiteSettings.initial();
-  bool _managerUnlocked = false;
+  bool _managerUnlocked = false; // local fallback gate (authEnabled == false)
+  bool _signedIn = false; // signed in with Google (authEnabled == true)
   String? _managerEmail;
   bool _loaded = false;
 
   List<Product> get products => List.unmodifiable(_products);
   List<Product> get favorites => _products.where((p) => p.favorite).toList();
   SiteSettings get settings => _settings;
-  bool get managerUnlocked => _managerUnlocked;
   String? get managerEmail => _managerEmail;
   bool get loaded => _loaded;
+
+  /// Signed in with Google (or unlocked locally when Firebase is off).
+  bool get signedIn => authEnabled ? _signedIn : _managerUnlocked;
+
+  /// True once this account is authorized — i.e. the studio should open.
+  /// With Firebase, that means signed in AND on the approved list.
+  bool get managerUnlocked {
+    if (!authEnabled) return _managerUnlocked;
+    return _signedIn && isApprovedManager(_managerEmail);
+  }
+
+  /// Signed in with Google but this email hasn't entered the access code yet,
+  /// so we need to collect it once to authorize the account.
+  bool get needsApproval =>
+      authEnabled && _signedIn && !isApprovedManager(_managerEmail);
+
+  /// Whether [email] has already been authorized with the access code.
+  bool isApprovedManager(String? email) {
+    if (email == null) return false;
+    final e = email.trim().toLowerCase();
+    return _settings.approvedManagerEmails
+        .map((m) => m.trim().toLowerCase())
+        .contains(e);
+  }
 
   List<Product> byCategory(String category) =>
       _products.where((p) => p.category == category).toList();
@@ -93,8 +117,29 @@ class HoneyStore extends ChangeNotifier {
     return false;
   }
 
+  /// Authorize the currently signed-in Google account by entering the access
+  /// code once. On success the email is remembered so future sign-ins skip the
+  /// code. Returns null on success, else an error message.
+  Future<String?> approveCurrentManager(String code) async {
+    if (!checkManagerPassword(code)) {
+      return 'Incorrect access code.';
+    }
+    final email = _managerEmail;
+    if (email == null) {
+      return 'Sign in with Google first.';
+    }
+    if (!isApprovedManager(email)) {
+      _settings = _settings.copyWith(
+        approvedManagerEmails: [..._settings.approvedManagerEmails, email],
+      );
+      await _backend.saveSettings(_settings);
+    }
+    notifyListeners();
+    return null;
+  }
+
   /// Sign in with Google (popup on web). Returns null on success, else an
-  /// error message. The access password is checked separately at the gate.
+  /// error message. The access code is collected once via [approveCurrentManager].
   Future<String?> signInWithGoogle() async {
     try {
       final provider = GoogleAuthProvider();

@@ -1,11 +1,11 @@
 {
-    "name": "honeylayne",
-    "short_name": "honeylayne",
+    "name": "Honey Layne",
+    "short_name": "Honey Layne",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FCEFC7",
+    "theme_color": "#F7B6C2",
+    "description": "Romantic, feminine fashion. Sweet pieces made to make you feel beautiful.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
