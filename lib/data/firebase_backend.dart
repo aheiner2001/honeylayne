@@ -6,12 +6,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../models/product.dart';
 import '../models/site_settings.dart';
 import 'backend.dart';
+].
 
-/// Cloud-backed storage. Products + settings live in Firestore, photos in
-/// Firebase Storage. Enabled by setting kUseFirebase = true after running
-/// `flutterfire configure` (see README).
-///
-/// Firestore layout:
 ///   products/{productId}        -> product fields
 ///   site/settings               -> nav toggles + homepage copy
 /// Storage layout:
