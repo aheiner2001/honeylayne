@@ -26,8 +26,24 @@ jobs:
 
       - run: flutter pub get
 
-      # base-href must match the repo name so assets load on the project page.
-      - run: flutter build web --release --no-tree-shake-icons --base-href "/honeylayne/"
+      # Build secrets in from GitHub repo Secrets (Settings > Secrets and
+      # variables > Actions). Nothing sensitive lives in the source tree.
+      - name: Write .env from secrets
+        run: |
+          cat > .env <<EOF
+          MANAGER_PASSWORD=${{ secrets.MANAGER_PASSWORD }}
+          FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          EOF
+
+      # Served at the apex custom domain (honeylayne.shop), so base-href is "/".
+      # (If you ever drop the custom domain and use aheiner2001.github.io/honeylayne/,
+      # change this back to "/honeylayne/".)
+      - run: flutter build web --release --no-tree-shake-icons --base-href "/" --dart-define-from-file=.env
 
       # GitHub Pages has no path rewrites, so serve the app for unknown paths
       # (e.g. /manage) by using it as the 404 fallback.

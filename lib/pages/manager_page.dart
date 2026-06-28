@@ -8,6 +8,7 @@ import '../models/product.dart';
 import '../models/site_settings.dart';
 import '../theme/honey_theme.dart';
 import '../widgets/product_image.dart';
+import 'about_page.dart' show featureIcon;
 
 class ManagerPage extends StatelessWidget {
   const ManagerPage({super.key});
@@ -127,9 +128,46 @@ class _Dashboard extends StatelessWidget {
                   ),
                   const SizedBox(height: 22),
                   _SectionCard(
-                    title: 'Homepage words',
-                    subtitle: 'Edit the hero headline and welcome text.',
-                    child: _CopyEditor(settings: store.settings),
+                    title: 'Page sections',
+                    subtitle:
+                        'Show or hide whole sections on each page.',
+                    child: _SectionToggles(settings: store.settings),
+                  ),
+                  const SizedBox(height: 22),
+                  _SectionCard(
+                    title: 'Home page',
+                    subtitle:
+                        'Hero headline, welcome text, button, photo, and the favorites title.',
+                    child: _HomeEditor(
+                        key: ValueKey(store.settings.hashCode),
+                        settings: store.settings),
+                  ),
+                  const SizedBox(height: 22),
+                  _SectionCard(
+                    title: 'About page · Our Story',
+                    subtitle:
+                        'Heading, story paragraphs, photo, and the four highlights.',
+                    child: _AboutEditor(
+                        key: ValueKey('about_${store.settings.hashCode}'),
+                        settings: store.settings),
+                  ),
+                  const SizedBox(height: 22),
+                  _SectionCard(
+                    title: 'Contact page',
+                    subtitle:
+                        'The greeting and how customers can reach you.',
+                    child: _ContactEditor(
+                        key: ValueKey('contact_${store.settings.hashCode}'),
+                        settings: store.settings),
+                  ),
+                  const SizedBox(height: 22),
+                  _SectionCard(
+                    title: 'Footer',
+                    subtitle:
+                        'The tagline and link columns at the bottom of every page.',
+                    child: _FooterEditor(
+                        key: ValueKey('footer_${store.settings.hashCode}'),
+                        settings: store.settings),
                   ),
                   const SizedBox(height: 22),
                   _SectionCard(
@@ -257,7 +295,7 @@ class _SectionCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (trailing != null) trailing!,
+              ?trailing,
             ],
           ),
           const SizedBox(height: 18),
@@ -334,48 +372,477 @@ class _ToggleChip extends StatelessWidget {
   }
 }
 
-class _CopyEditor extends StatefulWidget {
-  final SiteSettings settings;
-  const _CopyEditor({required this.settings});
-  @override
-  State<_CopyEditor> createState() => _CopyEditorState();
+void _toast(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Saved'), duration: Duration(seconds: 1)),
+  );
 }
 
-class _CopyEditorState extends State<_CopyEditor> {
+// ---------------------------------------------------------------------------
+class _SectionToggles extends StatelessWidget {
+  final SiteSettings settings;
+  const _SectionToggles({required this.settings});
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.read<HoneyStore>();
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        for (final entry in SiteSettings.sections.entries)
+          _ToggleChip(
+            label: entry.value,
+            value: settings.sectionOn(entry.key),
+            locked: false,
+            onChanged: (v) => store.toggleSection(entry.key, v),
+          ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+/// A photo box that uploads a new image and reports the resulting URL.
+class _ImagePickField extends StatefulWidget {
+  final String label;
+  final String imageUrl;
+  final String storageKey;
+  final ValueChanged<String> onChanged;
+  const _ImagePickField({
+    required this.label,
+    required this.imageUrl,
+    required this.storageKey,
+    required this.onChanged,
+  });
+
+  @override
+  State<_ImagePickField> createState() => _ImagePickFieldState();
+}
+
+class _ImagePickFieldState extends State<_ImagePickField> {
+  late String _url = widget.imageUrl;
+  bool _uploading = false;
+
+  Future<void> _pick() async {
+    final store = context.read<HoneyStore>();
+    final file = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, maxWidth: 1400, imageQuality: 82);
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    setState(() => _uploading = true);
+    final url = await store.uploadImage(bytes, widget.storageKey);
+    if (!mounted) return;
+    setState(() {
+      _url = url;
+      _uploading = false;
+    });
+    widget.onChanged(url);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.label,
+            style: HoneyTheme.sans(
+                size: 12, color: HoneyColors.textSoft, weight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        GestureDetector(
+          onTap: _pick,
+          child: Container(
+            width: 140,
+            height: 150,
+            decoration: BoxDecoration(
+              color: HoneyColors.cream,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: HoneyColors.pinkSoft, width: 1.4),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: _uploading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                        color: HoneyColors.pink, strokeWidth: 2))
+                : _url.isEmpty
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.add_a_photo_outlined,
+                              color: HoneyColors.pink, size: 28),
+                          const SizedBox(height: 8),
+                          Text('Add photo',
+                              style: HoneyTheme.sans(
+                                  size: 12, color: HoneyColors.pink)),
+                        ],
+                      )
+                    : ProductImage(imageUrl: _url),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+class _HomeEditor extends StatefulWidget {
+  final SiteSettings settings;
+  const _HomeEditor({super.key, required this.settings});
+  @override
+  State<_HomeEditor> createState() => _HomeEditorState();
+}
+
+class _HomeEditorState extends State<_HomeEditor> {
   late final _line1 = TextEditingController(text: widget.settings.heroTitleLine1);
   late final _line2 = TextEditingController(text: widget.settings.heroTitleLine2);
   late final _subtitle =
       TextEditingController(text: widget.settings.heroSubtitle);
+  late final _button =
+      TextEditingController(text: widget.settings.heroButtonLabel);
+  late final _favTitle =
+      TextEditingController(text: widget.settings.favoritesTitle);
+  late String _heroImage = widget.settings.heroImageUrl;
+
+  void _save() {
+    final store = context.read<HoneyStore>();
+    store.updateSettings(store.settings.copyWith(
+      heroTitleLine1: _line1.text,
+      heroTitleLine2: _line2.text,
+      heroSubtitle: _subtitle.text,
+      heroButtonLabel: _button.text,
+      favoritesTitle: _favTitle.text,
+      heroImageUrl: _heroImage,
+    ));
+    _toast(context);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _Field(controller: _line1, label: 'Headline line 1')),
-            const SizedBox(width: 12),
-            Expanded(child: _Field(controller: _line2, label: 'Headline line 2')),
+            _ImagePickField(
+              label: 'Hero photo',
+              imageUrl: _heroImage,
+              storageKey: 'hero',
+              onChanged: (u) => _heroImage = u,
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                          child: _Field(
+                              controller: _line1, label: 'Headline line 1')),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: _Field(
+                              controller: _line2, label: 'Headline line 2')),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _Field(controller: _subtitle, label: 'Welcome text'),
+                ],
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
-        _Field(controller: _subtitle, label: 'Welcome text'),
+        Row(
+          children: [
+            Expanded(
+                child: _Field(controller: _button, label: 'Button label')),
+            const SizedBox(width: 12),
+            Expanded(
+                child: _Field(
+                    controller: _favTitle, label: 'Favorites section title')),
+          ],
+        ),
         const SizedBox(height: 14),
         Align(
           alignment: Alignment.centerRight,
-          child: _PinkButton(
-            label: 'SAVE WORDS',
-            onTap: () {
-              context.read<HoneyStore>().updateCopy(
-                    heroTitleLine1: _line1.text,
-                    heroTitleLine2: _line2.text,
-                    heroSubtitle: _subtitle.text,
-                  );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Saved')),
-              );
-            },
+          child: _PinkButton(label: 'SAVE HOME', onTap: _save),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+class _AboutEditor extends StatefulWidget {
+  final SiteSettings settings;
+  const _AboutEditor({super.key, required this.settings});
+  @override
+  State<_AboutEditor> createState() => _AboutEditorState();
+}
+
+class _AboutEditorState extends State<_AboutEditor> {
+  late final _title = TextEditingController(text: widget.settings.aboutTitle);
+  late final _body1 = TextEditingController(text: widget.settings.aboutBody1);
+  late final _body2 = TextEditingController(text: widget.settings.aboutBody2);
+  late final _thanks =
+      TextEditingController(text: widget.settings.aboutThankYou);
+  late String _image = widget.settings.aboutImageUrl;
+  late final List<FeatureItem> _features =
+      List<FeatureItem>.from(widget.settings.aboutFeatures);
+  late final List<TextEditingController> _featureCtrls = [
+    for (final f in _features) TextEditingController(text: f.text),
+  ];
+
+  static const _iconKeys = ['leaf', 'heart', 'flower', 'bag', 'star', 'sparkle'];
+
+  void _save() {
+    final store = context.read<HoneyStore>();
+    final features = [
+      for (var i = 0; i < _features.length; i++)
+        _features[i].copyWith(text: _featureCtrls[i].text),
+    ];
+    store.updateSettings(store.settings.copyWith(
+      aboutTitle: _title.text,
+      aboutBody1: _body1.text,
+      aboutBody2: _body2.text,
+      aboutThankYou: _thanks.text,
+      aboutImageUrl: _image,
+      aboutFeatures: features,
+    ));
+    _toast(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ImagePickField(
+              label: 'Story photo',
+              imageUrl: _image,
+              storageKey: 'about',
+              onChanged: (u) => _image = u,
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                children: [
+                  _Field(controller: _title, label: 'Heading'),
+                  const SizedBox(height: 12),
+                  _Field(controller: _thanks, label: 'Closing line'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _Field(controller: _body1, label: 'Story paragraph 1'),
+        const SizedBox(height: 12),
+        _Field(controller: _body2, label: 'Story paragraph 2'),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text('Highlights',
+              style: HoneyTheme.serif(
+                  size: 16,
+                  color: HoneyColors.pinkDeep,
+                  weight: FontWeight.w600)),
+        ),
+        const SizedBox(height: 8),
+        for (var i = 0; i < _features.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _IconPicker(
+                  value: _features[i].icon,
+                  options: _iconKeys,
+                  onChanged: (v) =>
+                      setState(() => _features[i] = _features[i].copyWith(icon: v)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: _Field(
+                        controller: _featureCtrls[i],
+                        label: 'Highlight ${i + 1}')),
+              ],
+            ),
           ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: _PinkButton(label: 'SAVE ABOUT', onTap: _save),
+        ),
+      ],
+    );
+  }
+}
+
+class _IconPicker extends StatelessWidget {
+  final String value;
+  final List<String> options;
+  final ValueChanged<String> onChanged;
+  const _IconPicker(
+      {required this.value, required this.options, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: 50,
+      decoration: BoxDecoration(
+        color: HoneyColors.cream,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          icon: const Icon(Icons.keyboard_arrow_down, color: HoneyColors.pink),
+          items: [
+            for (final k in options)
+              DropdownMenuItem(
+                value: k,
+                child: Icon(featureIcon(k), color: HoneyColors.pinkDeep, size: 22),
+              ),
+          ],
+          onChanged: (v) => onChanged(v ?? value),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+class _ContactEditor extends StatefulWidget {
+  final SiteSettings settings;
+  const _ContactEditor({super.key, required this.settings});
+  @override
+  State<_ContactEditor> createState() => _ContactEditorState();
+}
+
+class _ContactEditorState extends State<_ContactEditor> {
+  late final _title = TextEditingController(text: widget.settings.contactTitle);
+  late final _blurb = TextEditingController(text: widget.settings.contactBlurb);
+  late final _email = TextEditingController(text: widget.settings.contactEmail);
+  late final _instagram =
+      TextEditingController(text: widget.settings.contactInstagram);
+  late final _phone = TextEditingController(text: widget.settings.contactPhone);
+
+  void _save() {
+    final store = context.read<HoneyStore>();
+    store.updateSettings(store.settings.copyWith(
+      contactTitle: _title.text,
+      contactBlurb: _blurb.text,
+      contactEmail: _email.text,
+      contactInstagram: _instagram.text,
+      contactPhone: _phone.text,
+    ));
+    _toast(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _Field(controller: _title, label: 'Heading'),
+        const SizedBox(height: 12),
+        _Field(controller: _blurb, label: 'Greeting text'),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _Field(controller: _email, label: 'Email')),
+            const SizedBox(width: 12),
+            Expanded(
+                child: _Field(controller: _phone, label: 'Phone (optional)')),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _Field(controller: _instagram, label: 'Instagram link'),
+        const SizedBox(height: 14),
+        Align(
+          alignment: Alignment.centerRight,
+          child: _PinkButton(label: 'SAVE CONTACT', onTap: _save),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+class _FooterEditor extends StatefulWidget {
+  final SiteSettings settings;
+  const _FooterEditor({super.key, required this.settings});
+  @override
+  State<_FooterEditor> createState() => _FooterEditorState();
+}
+
+class _FooterEditorState extends State<_FooterEditor> {
+  late final _tagline =
+      TextEditingController(text: widget.settings.footerTagline);
+  late final List<TextEditingController> _titles = [
+    for (final c in widget.settings.footerColumns)
+      TextEditingController(text: c.title),
+  ];
+  late final List<TextEditingController> _links = [
+    for (final c in widget.settings.footerColumns)
+      TextEditingController(text: c.links.join('\n')),
+  ];
+
+  void _save() {
+    final store = context.read<HoneyStore>();
+    final cols = [
+      for (var i = 0; i < _titles.length; i++)
+        FooterColumn(
+          title: _titles[i].text,
+          links: _links[i]
+              .text
+              .split('\n')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList(),
+        ),
+    ];
+    store.updateSettings(store.settings.copyWith(
+      footerTagline: _tagline.text,
+      footerColumns: cols,
+    ));
+    _toast(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _Field(controller: _tagline, label: 'Tagline (under the logo)'),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: [
+            for (var i = 0; i < _titles.length; i++)
+              SizedBox(
+                width: 220,
+                child: Column(
+                  children: [
+                    _Field(controller: _titles[i], label: 'Column ${i + 1} title'),
+                    const SizedBox(height: 8),
+                    _Field(
+                      controller: _links[i],
+                      label: 'Links (one per line)',
+                      maxLines: 5,
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Align(
+          alignment: Alignment.centerRight,
+          child: _PinkButton(label: 'SAVE FOOTER', onTap: _save),
         ),
       ],
     );
@@ -673,12 +1140,14 @@ class _Field extends StatelessWidget {
   final String? hint;
   final String? prefix;
   final TextInputType? keyboardType;
+  final int maxLines;
   const _Field(
       {required this.controller,
       required this.label,
       this.hint,
       this.prefix,
-      this.keyboardType});
+      this.keyboardType,
+      this.maxLines = 1});
 
   @override
   Widget build(BuildContext context) {
@@ -694,6 +1163,7 @@ class _Field extends StatelessWidget {
         TextField(
           controller: controller,
           keyboardType: keyboardType,
+          maxLines: maxLines,
           style: HoneyTheme.serif(size: 16, color: HoneyColors.text),
           decoration: InputDecoration(
             hintText: hint,

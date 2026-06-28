@@ -9,8 +9,11 @@ import 'data/firebase_backend.dart';
 import 'data/firebase_config.dart';
 import 'data/store.dart';
 import 'firebase_options.dart';
+import 'pages/about_page.dart';
+import 'pages/contact_page.dart';
 import 'pages/home_page.dart';
 import 'pages/manager_page.dart';
+import 'pages/shop_page.dart';
 import 'theme/honey_theme.dart';
 
 Future<void> main() async {
@@ -21,7 +24,7 @@ Future<void> main() async {
   usePathUrlStrategy();
 
   HoneyBackend backend = LocalBackend();
-  if (kUseFirebase) {
+  if (kUseFirebase && DefaultFirebaseOptions.isConfigured) {
     try {
       await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform);
@@ -44,6 +47,13 @@ class HoneyApp extends StatelessWidget {
   late final _router = GoRouter(
     routes: [
       GoRoute(path: '/', builder: (_, _) => const HomePage()),
+      GoRoute(path: '/shop', builder: (_, _) => const ShopPage()),
+      GoRoute(
+        path: '/shop/:category',
+        builder: (_, s) => ShopPage(category: s.pathParameters['category']),
+      ),
+      GoRoute(path: '/about', builder: (_, _) => const AboutPage()),
+      GoRoute(path: '/contact', builder: (_, _) => const ContactPage()),
       GoRoute(path: '/manage', builder: (_, _) => const ManagerPage()),
       // Keep the old link working.
       GoRoute(path: '/manager', redirect: (_, _) => '/manage'),

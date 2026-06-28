@@ -1,15 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../data/store.dart';
 import '../theme/honey_theme.dart';
 
+/// Maps a top-bar label to its route.
+String routeForNav(String label) {
+  switch (label) {
+    case 'Home':
+      return '/';
+    case 'Shop All':
+      return '/shop';
+    case 'About':
+      return '/about';
+    case 'Contact':
+      return '/contact';
+    default:
+      return '/shop/$label'; // Dresses, Tops, Bottoms, Accessories
+  }
+}
+
 /// The sunny yellow header: bees + flight trail (left), floral cluster (right),
 /// the scripted Honey Layne wordmark, the toggleable nav row, and utility icons.
 class SiteHeader extends StatelessWidget {
   final String active;
-  final ValueChanged<String>? onNavTap;
-  const SiteHeader({super.key, this.active = 'Home', this.onNavTap});
+  const SiteHeader({super.key, this.active = 'Home'});
 
   @override
   Widget build(BuildContext context) {
@@ -51,18 +67,26 @@ class SiteHeader extends StatelessWidget {
               child: Column(
                 children: [
                   // Wordmark with heart.
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Honey Layne',
-                          style: HoneyTheme.logoFont(size: compact ? 38 : 50)),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8, left: 2),
-                        child: Icon(Icons.favorite_border,
-                            size: compact ? 14 : 18, color: HoneyColors.logo),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => context.go('/'),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Honey Layne',
+                              style:
+                                  HoneyTheme.logoFont(size: compact ? 38 : 50)),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8, left: 2),
+                            child: Icon(Icons.favorite_border,
+                                size: compact ? 14 : 18,
+                                color: HoneyColors.logo),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                   SizedBox(height: compact ? 8 : 12),
                   // Nav centered in full width, icons pinned to the right.
@@ -74,7 +98,6 @@ class SiteHeader extends StatelessWidget {
                         _NavRow(
                           items: settings.visibleNav,
                           active: active,
-                          onTap: onNavTap,
                         ),
                         if (!compact)
                           const Positioned(right: 4, child: _UtilityIcons()),
@@ -94,8 +117,7 @@ class SiteHeader extends StatelessWidget {
 class _NavRow extends StatelessWidget {
   final List<String> items;
   final String active;
-  final ValueChanged<String>? onTap;
-  const _NavRow({required this.items, required this.active, this.onTap});
+  const _NavRow({required this.items, required this.active});
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +127,7 @@ class _NavRow extends StatelessWidget {
       runSpacing: 6,
       children: [
         for (final item in items)
-          _NavItem(label: item, active: item == active, onTap: onTap),
+          _NavItem(label: item, active: item == active),
       ],
     );
   }
@@ -114,8 +136,7 @@ class _NavRow extends StatelessWidget {
 class _NavItem extends StatefulWidget {
   final String label;
   final bool active;
-  final ValueChanged<String>? onTap;
-  const _NavItem({required this.label, required this.active, this.onTap});
+  const _NavItem({required this.label, required this.active});
 
   @override
   State<_NavItem> createState() => _NavItemState();
@@ -132,7 +153,7 @@ class _NavItemState extends State<_NavItem> {
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
-        onTap: () => widget.onTap?.call(widget.label),
+        onTap: () => context.go(routeForNav(widget.label)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

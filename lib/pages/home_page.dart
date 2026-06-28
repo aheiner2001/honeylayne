@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../data/store.dart';
 import '../theme/honey_theme.dart';
 import '../widgets/footer.dart';
 import '../widgets/product_card.dart';
+import '../widgets/product_image.dart';
 import '../widgets/site_header.dart';
 
 class HomePage extends StatelessWidget {
@@ -24,17 +26,22 @@ class HomePage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SiteHeader(active: 'Home'),
-            Padding(
-              padding: EdgeInsets.symmetric(
-                  horizontal: compact ? 14 : 28, vertical: compact ? 16 : 22),
-              child: _Hero(
-                line1: settings.heroTitleLine1,
-                line2: settings.heroTitleLine2,
-                subtitle: settings.heroSubtitle,
-                compact: compact,
+            if (settings.sectionOn('home.hero'))
+              Padding(
+                padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 14 : 28, vertical: compact ? 16 : 22),
+                child: _Hero(
+                  line1: settings.heroTitleLine1,
+                  line2: settings.heroTitleLine2,
+                  subtitle: settings.heroSubtitle,
+                  buttonLabel: settings.heroButtonLabel,
+                  imageUrl: settings.heroImageUrl,
+                  compact: compact,
+                ),
               ),
-            ),
-            _FavoritesSection(compact: compact),
+            if (settings.sectionOn('home.favorites'))
+              _FavoritesSection(
+                  compact: compact, title: settings.favoritesTitle),
             const SizedBox(height: 36),
             const SiteFooter(),
           ],
@@ -48,11 +55,15 @@ class _Hero extends StatelessWidget {
   final String line1;
   final String line2;
   final String subtitle;
+  final String buttonLabel;
+  final String imageUrl;
   final bool compact;
   const _Hero({
     required this.line1,
     required this.line2,
     required this.subtitle,
+    required this.buttonLabel,
+    required this.imageUrl,
     required this.compact,
   });
 
@@ -80,7 +91,7 @@ class _Hero extends StatelessWidget {
                   weight: FontWeight.w500)),
         ),
         const SizedBox(height: 24),
-        _ShopNowButton(),
+        _ShopNowButton(label: buttonLabel),
       ],
     );
 
@@ -107,14 +118,17 @@ class _Hero extends StatelessWidget {
               padding: EdgeInsets.symmetric(
                   horizontal: compact ? 24 : 56, vertical: compact ? 28 : 38),
               child: compact
-                  ? Column(
-                      children: [text, const SizedBox(height: 28), const _Polaroid()])
+                  ? Column(children: [
+                      text,
+                      const SizedBox(height: 28),
+                      _Polaroid(imageUrl: imageUrl),
+                    ])
                   : Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(child: Center(child: text)),
                         const SizedBox(width: 24),
-                        const _Polaroid(),
+                        _Polaroid(imageUrl: imageUrl),
                       ],
                     ),
             ),
@@ -126,6 +140,8 @@ class _Hero extends StatelessWidget {
 }
 
 class _ShopNowButton extends StatefulWidget {
+  final String label;
+  const _ShopNowButton({required this.label});
   @override
   State<_ShopNowButton> createState() => _ShopNowButtonState();
 }
@@ -138,33 +154,37 @@ class _ShopNowButtonState extends State<_ShopNowButton> {
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 15),
-        decoration: BoxDecoration(
-          color: _hover ? HoneyColors.pinkDeep : HoneyColors.pink,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: HoneyColors.pink.withValues(alpha: 0.45),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            ),
-          ],
+      child: GestureDetector(
+        onTap: () => context.go('/shop'),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 15),
+          decoration: BoxDecoration(
+            color: _hover ? HoneyColors.pinkDeep : HoneyColors.pink,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: HoneyColors.pink.withValues(alpha: 0.45),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Text(widget.label,
+              style: HoneyTheme.sans(
+                  size: 13,
+                  color: Colors.white,
+                  weight: FontWeight.w600,
+                  spacing: 1.5)),
         ),
-        child: Text('SHOP NOW',
-            style: HoneyTheme.sans(
-                size: 13,
-                color: Colors.white,
-                weight: FontWeight.w600,
-                spacing: 1.5)),
       ),
     );
   }
 }
 
 class _Polaroid extends StatelessWidget {
-  const _Polaroid();
+  final String imageUrl;
+  const _Polaroid({required this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
@@ -193,8 +213,11 @@ class _Polaroid extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(2),
-                child: Image.asset('assets/images/hero_model.png',
-                    width: w, height: w * 0.92, fit: BoxFit.cover),
+                child: SizedBox(
+                  width: w,
+                  height: w * 0.92,
+                  child: ProductImage(imageUrl: imageUrl, fit: BoxFit.cover),
+                ),
               ),
             ),
           ),
@@ -224,7 +247,8 @@ class _Polaroid extends StatelessWidget {
 
 class _FavoritesSection extends StatelessWidget {
   final bool compact;
-  const _FavoritesSection({required this.compact});
+  final String title;
+  const _FavoritesSection({required this.compact, required this.title});
 
   @override
   Widget build(BuildContext context) {
@@ -251,21 +275,27 @@ class _FavoritesSection extends StatelessWidget {
               Icon(Icons.favorite_border,
                   size: 18, color: HoneyColors.pink),
               const SizedBox(width: 8),
-              Text('Shop Our Favorites',
+              Text(title,
                   style: HoneyTheme.serif(
                       size: 24,
                       color: HoneyColors.pinkDeep,
                       weight: FontWeight.w600)),
               const Spacer(),
-              Row(
-                children: [
-                  Text('View all',
-                      style: HoneyTheme.sans(
-                          size: 13, color: HoneyColors.pink)),
-                  const SizedBox(width: 4),
-                  Icon(Icons.arrow_forward,
-                      size: 14, color: HoneyColors.pink),
-                ],
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => context.go('/shop'),
+                  child: Row(
+                    children: [
+                      Text('View all',
+                          style: HoneyTheme.sans(
+                              size: 13, color: HoneyColors.pink)),
+                      const SizedBox(width: 4),
+                      Icon(Icons.arrow_forward,
+                          size: 14, color: HoneyColors.pink),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),

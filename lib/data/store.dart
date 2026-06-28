@@ -5,9 +5,12 @@ import '../models/site_settings.dart';
 import 'backend.dart';
 import 'seed.dart';
 
-/// Manager password. For a tiny boutique site this client-side gate is enough.
-/// Change this to whatever you give your sister.
-const kManagerPassword = 'honeybee';
+/// Manager password. Injected at build time from `--dart-define-from-file=.env`
+/// (locally) or the MANAGER_PASSWORD GitHub Secret (in CI), so the real password
+/// never lives in source. The default is only a placeholder for dev builds that
+/// forget to pass it.
+const kManagerPassword =
+    String.fromEnvironment('MANAGER_PASSWORD', defaultValue: 'changeme');
 
 /// App-wide state: catalog, site settings, manager auth. Reads/writes go
 /// through a [HoneyBackend] (local browser storage or Firebase).
@@ -71,21 +74,23 @@ class HoneyStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateCopy({
-    String? heroTitleLine1,
-    String? heroTitleLine2,
-    String? heroSubtitle,
-    String? storyText,
-  }) {
-    _settings = _settings.copyWith(
-      heroTitleLine1: heroTitleLine1,
-      heroTitleLine2: heroTitleLine2,
-      heroSubtitle: heroSubtitle,
-      storyText: storyText,
-    );
+  void toggleSection(String id, bool enabled) {
+    final next = Map<String, bool>.from(_settings.sectionVisible)..[id] = enabled;
+    _settings = _settings.copyWith(sectionVisible: next);
     _backend.saveSettings(_settings);
     notifyListeners();
   }
+
+  /// Replace the whole settings object (used by the studio's page editors).
+  void updateSettings(SiteSettings next) {
+    _settings = next;
+    _backend.saveSettings(_settings);
+    notifyListeners();
+  }
+
+  /// Upload any image (hero, about, product) and get back a usable URL/URI.
+  Future<String> uploadImage(Uint8List bytes, String key) =>
+      _backend.uploadImage(bytes, key);
 
   // ---- Products ----
   void addProduct(Product p) {
