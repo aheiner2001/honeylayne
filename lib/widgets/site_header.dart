@@ -21,8 +21,8 @@ String routeForNav(String label) {
   }
 }
 
-/// The sunny yellow header: bees + flight trail (left), floral cluster (right),
-/// the scripted Honey Layne wordmark, the toggleable nav row, and utility icons.
+/// The sunny yellow header: the Honey Layne wordmark logo, the toggleable nav
+/// row, and utility icons.
 class SiteHeader extends StatelessWidget {
   final String active;
   const SiteHeader({super.key, this.active = 'Home'});
@@ -44,47 +44,19 @@ class SiteHeader extends StatelessWidget {
       child: ClipRect(
         child: Stack(
           children: [
-            // Decorative bees on the left.
-            Positioned(
-              left: -8,
-              top: 2,
-              child: IgnorePointer(
-                child: Image.asset('assets/images/bees_trail.png',
-                    width: compact ? 130 : 196, fit: BoxFit.contain),
-              ),
-            ),
-            // Floral cluster on the right.
-            Positioned(
-              right: -22,
-              top: -30,
-              child: IgnorePointer(
-                child: Image.asset('assets/images/floral_topright.png',
-                    width: compact ? 140 : 232, fit: BoxFit.contain),
-              ),
-            ),
             Padding(
-              padding: EdgeInsets.fromLTRB(24, compact ? 16 : 22, 24, compact ? 14 : 20),
+              padding: EdgeInsets.fromLTRB(24, compact ? 14 : 18, 24, compact ? 14 : 20),
               child: Column(
                 children: [
-                  // Wordmark with heart.
+                  // Wordmark logo (flowers + bee + heart baked in).
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: GestureDetector(
                       onTap: () => context.go('/'),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Honey Layne',
-                              style:
-                                  HoneyTheme.logoFont(size: compact ? 38 : 50)),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8, left: 2),
-                            child: Icon(Icons.favorite_border,
-                                size: compact ? 14 : 18,
-                                color: HoneyColors.logo),
-                          ),
-                        ],
+                      child: Image.asset(
+                        'assets/images/logo_wordmark.png',
+                        height: compact ? 64 : 92,
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),

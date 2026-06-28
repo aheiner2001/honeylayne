@@ -58,7 +58,7 @@ class SiteSettings {
     this.contactBlurb =
         "We'd love to hear from you — questions, custom requests, or just to say hi.",
     this.contactEmail = 'hello@honeylayne.shop',
-    this.contactInstagram = 'https://instagram.com/honeylayne',
+    this.contactInstagram = 'https://www.instagram.com/_honeylayne/',
     this.contactPhone = '',
     this.footerTagline = 'Romantic pieces made\nto make you feel beautiful.',
     this.footerColumns = defaultFooterColumns,

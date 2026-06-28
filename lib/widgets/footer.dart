@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/store.dart';
 import '../models/site_settings.dart';
@@ -31,11 +32,15 @@ class SiteFooter extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             mainAxisSize: MainAxisSize.min,
-            children: const [
-              _Social(Icons.camera_alt_outlined),
-              _Social(Icons.alternate_email),
-              _Social(Icons.favorite_border),
-              _Social(Icons.mail_outline),
+            children: [
+              _Social(Icons.camera_alt_outlined,
+                  onTap: () => _open(settings.contactInstagram)),
+              const _Social(Icons.alternate_email),
+              const _Social(Icons.favorite_border),
+              _Social(Icons.mail_outline,
+                  onTap: settings.contactEmail.isEmpty
+                      ? null
+                      : () => _open('mailto:${settings.contactEmail}')),
             ],
           ),
         ],
@@ -94,15 +99,27 @@ class _FooterCol extends StatelessWidget {
   }
 }
 
+Future<void> _open(String url) async {
+  if (url.isEmpty) return;
+  final uri = Uri.tryParse(url);
+  if (uri != null) await launchUrl(uri, mode: LaunchMode.platformDefault);
+}
+
 class _Social extends StatelessWidget {
   final IconData icon;
-  const _Social(this.icon);
+  final VoidCallback? onTap;
+  const _Social(this.icon, {this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final child = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Icon(icon, size: 18, color: HoneyColors.pink),
+    );
+    if (onTap == null) return child;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(onTap: onTap, child: child),
     );
   }
 }

@@ -48,7 +48,8 @@ class HoneyStore extends ChangeNotifier {
 
   // ---- Manager auth ----
   bool unlock(String password) {
-    if (password == kManagerPassword) {
+    // Reject empty passwords so a missing MANAGER_PASSWORD can never unlock.
+    if (kManagerPassword.isNotEmpty && password == kManagerPassword) {
       _managerUnlocked = true;
       notifyListeners();
       return true;

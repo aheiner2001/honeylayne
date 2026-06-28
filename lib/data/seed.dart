@@ -9,7 +9,7 @@ const seedProducts = <Product>[
     price: 72,
     category: 'Dresses',
     imageUrl: 'assets/images/prod_daisy_dress.png',
-    instagramUrl: 'https://instagram.com/honeylayne',
+    instagramUrl: 'https://www.instagram.com/_honeylayne/',
   ),
   Product(
     id: 'lily-tie-cardigan',
@@ -17,7 +17,7 @@ const seedProducts = <Product>[
     price: 48,
     category: 'Tops',
     imageUrl: 'assets/images/prod_lily_cardigan.png',
-    instagramUrl: 'https://instagram.com/honeylayne',
+    instagramUrl: 'https://www.instagram.com/_honeylayne/',
   ),
   Product(
     id: 'honey-mini-dress',
@@ -25,7 +25,7 @@ const seedProducts = <Product>[
     price: 68,
     category: 'Dresses',
     imageUrl: 'assets/images/prod_honey_dress.png',
-    instagramUrl: 'https://instagram.com/honeylayne',
+    instagramUrl: 'https://www.instagram.com/_honeylayne/',
   ),
   Product(
     id: 'ruffle-tank-top',
@@ -33,7 +33,7 @@ const seedProducts = <Product>[
     price: 36,
     category: 'Tops',
     imageUrl: 'assets/images/prod_ruffle_top.png',
-    instagramUrl: 'https://instagram.com/honeylayne',
+    instagramUrl: 'https://www.instagram.com/_honeylayne/',
   ),
   Product(
     id: 'blossom-midi-skirt',
@@ -41,6 +41,6 @@ const seedProducts = <Product>[
     price: 54,
     category: 'Bottoms',
     imageUrl: 'assets/images/prod_blossom_skirt.png',
-    instagramUrl: 'https://instagram.com/honeylayne',
+    instagramUrl: 'https://www.instagram.com/_honeylayne/',
   ),
 ];
