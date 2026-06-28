@@ -729,6 +729,14 @@ class _HeaderEditorState extends State<_HeaderEditor> {
   late String _left = widget.settings.headerLeftImageUrl;
   late String _right = widget.settings.headerRightImageUrl;
   late String _icon = widget.settings.headerShopIconUrl;
+  late final _shopLink =
+      TextEditingController(text: widget.settings.contactInstagram);
+
+  @override
+  void dispose() {
+    _shopLink.dispose();
+    super.dispose();
+  }
 
   void _save() {
     final store = context.read<HoneyStore>();
@@ -736,6 +744,7 @@ class _HeaderEditorState extends State<_HeaderEditor> {
       headerLeftImageUrl: _left,
       headerRightImageUrl: _right,
       headerShopIconUrl: _icon,
+      contactInstagram: _shopLink.text.trim(),
     ));
     _toast(context);
   }
@@ -781,6 +790,11 @@ class _HeaderEditorState extends State<_HeaderEditor> {
               onChanged: (u) => _icon = u,
             ),
           ],
+        ),
+        const SizedBox(height: 16),
+        _Field(
+          controller: _shopLink,
+          label: 'Instagram shop link (opens when the shop icon is tapped)',
         ),
         const SizedBox(height: 14),
         Row(
