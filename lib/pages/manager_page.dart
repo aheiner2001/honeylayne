@@ -26,8 +26,6 @@ class ManagerPage extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-enum _GateMode { signin, setup, reset }
-
 class _PasswordGate extends StatefulWidget {
   const _PasswordGate();
   @override
@@ -35,29 +33,20 @@ class _PasswordGate extends StatefulWidget {
 }
 
 class _PasswordGateState extends State<_PasswordGate> {
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  final _code = TextEditingController();
   final _legacy = TextEditingController();
-
-  _GateMode _mode = _GateMode.signin;
   bool _busy = false;
   String? _error;
-  String? _info;
 
-  Future<void> _run(Future<String?> Function() action,
-      {String? success}) async {
+  Future<void> _signInGoogle() async {
     setState(() {
       _busy = true;
       _error = null;
-      _info = null;
     });
-    final err = await action();
+    final err = await context.read<HoneyStore>().signInWithGoogle();
     if (!mounted) return;
     setState(() {
       _busy = false;
       _error = err;
-      _info = err == null ? success : null;
     });
   }
 
@@ -100,7 +89,7 @@ class _PasswordGateState extends State<_PasswordGate> {
                       weight: FontWeight.w500)),
               const SizedBox(height: 22),
               if (store.authEnabled)
-                ..._authForm(store)
+                ..._googleForm()
               else
                 ..._legacyForm(),
               if (_error != null) ...[
@@ -109,12 +98,6 @@ class _PasswordGateState extends State<_PasswordGate> {
                     textAlign: TextAlign.center,
                     style: HoneyTheme.sans(
                         size: 13, color: HoneyColors.pinkDeep)),
-              ],
-              if (_info != null) ...[
-                const SizedBox(height: 12),
-                Text(_info!,
-                    textAlign: TextAlign.center,
-                    style: HoneyTheme.sans(size: 13, color: HoneyColors.pink)),
               ],
               const SizedBox(height: 14),
               TextButton(
@@ -129,117 +112,83 @@ class _PasswordGateState extends State<_PasswordGate> {
     );
   }
 
+  // Google sign-in (used when Firebase is configured).
+  List<Widget> _googleForm() => [
+        Text('Sign in with your authorized Google account.',
+            textAlign: TextAlign.center,
+            style: HoneyTheme.sans(size: 13, color: HoneyColors.textSoft)),
+        const SizedBox(height: 18),
+        if (_busy)
+          const _Spinner()
+        else
+          _GoogleButton(onTap: _signInGoogle),
+      ];
+
   // Simple build-time password (used when Firebase isn't configured).
   List<Widget> _legacyForm() => [
         TextField(
           controller: _legacy,
           obscureText: true,
           onSubmitted: (_) => _legacySubmit(),
-          decoration: _dec('Manager password'),
+          decoration: InputDecoration(
+            hintText: 'Manager password',
+            filled: true,
+            fillColor: HoneyColors.cream,
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none),
+          ),
         ),
         const SizedBox(height: 18),
         _PinkButton(label: 'ENTER STUDIO', onTap: _legacySubmit),
       ];
+}
 
-  // Firebase email/password with first-time setup + reset.
-  List<Widget> _authForm(HoneyStore store) {
-    final emailField = TextField(
-      controller: _email,
-      keyboardType: TextInputType.emailAddress,
-      decoration: _dec('Email'),
-    );
-    final pwField = TextField(
-      controller: _password,
-      obscureText: true,
-      onSubmitted: (_) => _primaryAction(store),
-      decoration: _dec(_mode == _GateMode.setup ? 'Create a password' : 'Password'),
-    );
+class _GoogleButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _GoogleButton({required this.onTap});
 
-    switch (_mode) {
-      case _GateMode.signin:
-        return [
-          emailField,
-          const SizedBox(height: 12),
-          pwField,
-          const SizedBox(height: 18),
-          _busy
-              ? const _Spinner()
-              : _PinkButton(label: 'SIGN IN', onTap: () => _primaryAction(store)),
-          const SizedBox(height: 6),
-          _link('Forgot password?', () => setState(() => _mode = _GateMode.reset)),
-          _link('First time? Set up your account',
-              () => setState(() => _mode = _GateMode.setup)),
-        ];
-      case _GateMode.setup:
-        return [
-          Text('Use the one-time setup code, then your email and a password.',
-              textAlign: TextAlign.center,
-              style: HoneyTheme.sans(size: 12, color: HoneyColors.textSoft)),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _code,
-            obscureText: true,
-            decoration: _dec('One-time setup code'),
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: HoneyColors.text,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+        side: const BorderSide(color: HoneyColors.blushDeep, width: 1.2),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Simple multi-color "G" stand-in (no asset needed).
+          Container(
+            width: 22,
+            height: 22,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFF4285F4),
+            ),
+            child: const Text('G',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14)),
           ),
-          const SizedBox(height: 12),
-          emailField,
-          const SizedBox(height: 12),
-          pwField,
-          const SizedBox(height: 18),
-          _busy
-              ? const _Spinner()
-              : _PinkButton(
-                  label: 'CREATE ACCOUNT', onTap: () => _primaryAction(store)),
-          const SizedBox(height: 6),
-          _link('Already set up? Sign in',
-              () => setState(() => _mode = _GateMode.signin)),
-        ];
-      case _GateMode.reset:
-        return [
-          Text('Enter your email and we\'ll send a reset link.',
-              textAlign: TextAlign.center,
-              style: HoneyTheme.sans(size: 12, color: HoneyColors.textSoft)),
-          const SizedBox(height: 12),
-          emailField,
-          const SizedBox(height: 18),
-          _busy
-              ? const _Spinner()
-              : _PinkButton(
-                  label: 'SEND RESET LINK', onTap: () => _primaryAction(store)),
-          const SizedBox(height: 6),
-          _link('Back to sign in',
-              () => setState(() => _mode = _GateMode.signin)),
-        ];
-    }
+          const SizedBox(width: 12),
+          Text('Continue with Google',
+              style: HoneyTheme.sans(
+                  size: 14,
+                  color: HoneyColors.text,
+                  weight: FontWeight.w600)),
+        ],
+      ),
+    );
   }
-
-  void _primaryAction(HoneyStore store) {
-    switch (_mode) {
-      case _GateMode.signin:
-        _run(() => store.signIn(_email.text, _password.text));
-      case _GateMode.setup:
-        _run(() =>
-            store.registerManager(_email.text, _password.text, _code.text));
-      case _GateMode.reset:
-        _run(() => store.sendPasswordReset(_email.text),
-            success: 'Reset link sent — check your email.');
-    }
-  }
-
-  Widget _link(String label, VoidCallback onTap) => TextButton(
-        onPressed: onTap,
-        child: Text(label,
-            style: HoneyTheme.sans(size: 13, color: HoneyColors.pink)),
-      );
-
-  InputDecoration _dec(String hint) => InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: HoneyColors.cream,
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none),
-      );
 }
 
 class _Spinner extends StatelessWidget {

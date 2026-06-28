@@ -14,13 +14,29 @@ import 'seed.dart';
 const kManagerPassword =
     String.fromEnvironment('MANAGER_PASSWORD', defaultValue: 'changeme');
 
+/// Comma-separated list of Google account emails allowed into the studio.
+/// Injected at build time (MANAGER_EMAILS). If empty, any signed-in Google
+/// account is allowed — set this in `.env`/Secrets to lock it down.
+const kManagerEmails = String.fromEnvironment('MANAGER_EMAILS');
+
+bool _emailAllowed(String? email) {
+  final allow = kManagerEmails
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .where((e) => e.isNotEmpty)
+      .toList();
+  if (allow.isEmpty) return true; // No allowlist configured -> allow any.
+  return email != null && allow.contains(email.toLowerCase());
+}
+
 /// App-wide state: catalog, site settings, manager auth. Reads/writes go
 /// through a [HoneyBackend] (local browser storage or Firebase).
 class HoneyStore extends ChangeNotifier {
   HoneyStore(this._backend, {this.authEnabled = false}) {
     if (authEnabled) {
       FirebaseAuth.instance.authStateChanges().listen((user) {
-        _managerUnlocked = user != null;
+        // Only treat the manager as unlocked if their email is allowed.
+        _managerUnlocked = user != null && _emailAllowed(user.email);
         _managerEmail = user?.email;
         notifyListeners();
       });
@@ -72,6 +88,29 @@ class HoneyStore extends ChangeNotifier {
       return true;
     }
     return false;
+  }
+
+  /// Sign in with Google (popup on web). Returns null on success, else an
+  /// error message. Rejects accounts not on the manager allowlist.
+  Future<String?> signInWithGoogle() async {
+    try {
+      final provider = GoogleAuthProvider();
+      await FirebaseAuth.instance.signInWithPopup(provider);
+      final email = FirebaseAuth.instance.currentUser?.email;
+      if (!_emailAllowed(email)) {
+        await FirebaseAuth.instance.signOut();
+        return 'This Google account isn\'t authorized for the studio.';
+      }
+      return null;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'popup-closed-by-user' ||
+          e.code == 'cancelled-popup-request') {
+        return null; // User dismissed the popup — not an error.
+      }
+      return _authMessage(e);
+    } catch (e) {
+      return 'Could not sign in with Google. Please try again.';
+    }
   }
 
   /// Sign in an existing manager. Returns null on success, else an error
