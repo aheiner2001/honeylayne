@@ -5,6 +5,7 @@ import { useStore } from '../store/HoneyStore';
 import { sectionOn } from '../types';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
+import { PageDecor } from '../components/PageDecor';
 import { openExternal } from '../lib/util';
 
 function ContactRow({
@@ -32,7 +33,8 @@ export function ContactPage() {
   const { settings } = useStore();
 
   return (
-    <div className="min-h-screen bg-blush">
+    <div className="relative isolate min-h-screen overflow-hidden bg-blush">
+      <PageDecor />
       <SiteHeader active="Contact" />
 
       {sectionOn(settings, 'contact.details') && (

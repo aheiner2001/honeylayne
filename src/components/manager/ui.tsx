@@ -39,16 +39,19 @@ export function PinkButton({
   label,
   onClick,
   icon,
+  disabled = false,
 }: {
   label: string;
   onClick: () => void;
   icon?: ReactNode;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-full bg-pink px-[22px] py-3.5 font-quicksand text-[13px] font-semibold tracking-wide text-white transition-colors hover:bg-pinkDeep"
+      disabled={disabled}
+      className="inline-flex items-center gap-1.5 rounded-full bg-pink px-[22px] py-3.5 font-quicksand text-[13px] font-semibold tracking-wide text-white transition-colors hover:bg-pinkDeep disabled:cursor-not-allowed disabled:opacity-60"
     >
       {icon}
       {label}
