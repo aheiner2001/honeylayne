@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// Honey Layne product photos: public read, open write (manager page is gated
+// by a client-side password). Tighten with Firebase Auth later if desired.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}
