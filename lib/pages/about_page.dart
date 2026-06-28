@@ -170,7 +170,7 @@ class _FeatureBand extends StatelessWidget {
       padding: EdgeInsets.symmetric(
           horizontal: compact ? 24 : 80, vertical: compact ? 36 : 48),
       child: Wrap(
-        alignment: WrapAlignment.spaceBetween,
+        alignment: compact ? WrapAlignment.center : WrapAlignment.spaceBetween,
         spacing: 28,
         runSpacing: 28,
         children: [

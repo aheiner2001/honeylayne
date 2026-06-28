@@ -81,8 +81,8 @@ class _Hero extends StatelessWidget {
             textAlign: compact ? TextAlign.center : TextAlign.left,
             style: HoneyTheme.script(size: compact ? 44 : 64)),
         const SizedBox(height: 14),
-        SizedBox(
-          width: 360,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
           child: Text(subtitle,
               textAlign: compact ? TextAlign.center : TextAlign.left,
               style: HoneyTheme.serif(

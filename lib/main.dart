@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'data/backend.dart';
@@ -38,13 +39,20 @@ Future<void> main() async {
     }
   }
 
-  final store = HoneyStore(backend, authEnabled: authEnabled)..load();
+  final store = HoneyStore(backend, authEnabled: authEnabled);
   runApp(HoneyApp(store: store));
 }
 
-class HoneyApp extends StatelessWidget {
+class HoneyApp extends StatefulWidget {
   final HoneyStore store;
-  HoneyApp({super.key, required this.store});
+  const HoneyApp({super.key, required this.store});
+
+  @override
+  State<HoneyApp> createState() => _HoneyAppState();
+}
+
+class _HoneyAppState extends State<HoneyApp> {
+  bool _ready = false;
 
   late final _router = GoRouter(
     routes: [
@@ -70,14 +78,65 @@ class HoneyApp extends StatelessWidget {
       );
 
   @override
+  void initState() {
+    super.initState();
+    _boot();
+  }
+
+  /// Load saved settings AND preload the brand fonts before showing the site,
+  /// so visitors never see a flash of default content or a fallback font.
+  Future<void> _boot() async {
+    try {
+      // Referencing each font starts its download; pendingFonts awaits them.
+      GoogleFonts.allura();
+      GoogleFonts.dancingScript();
+      GoogleFonts.cormorantGaramond();
+      GoogleFonts.quicksand();
+      await Future.wait<void>([
+        widget.store.load(),
+        GoogleFonts.pendingFonts().then((_) {}),
+      ]).timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Never hang on a slow font/network — show the site anyway.
+    }
+    if (mounted) setState(() => _ready = true);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider.value(
-      value: store,
+      value: widget.store,
       child: MaterialApp.router(
         title: 'Honey Layne',
         debugShowCheckedModeBanner: false,
         theme: HoneyTheme.build(),
         routerConfig: _router,
+        builder: (context, child) => _ready
+            ? (child ?? const SizedBox.shrink())
+            : const _Splash(),
+      ),
+    );
+  }
+}
+
+/// Minimal branded splash shown while settings + fonts load. Uses an image
+/// wordmark (no web font) so it itself never flashes.
+class _Splash extends StatelessWidget {
+  const _Splash();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [HoneyColors.headerTop, HoneyColors.blush],
+        ),
+      ),
+      child: Center(
+        child: Image.asset('assets/images/logo_wordmark.png',
+            width: 240, fit: BoxFit.contain),
       ),
     );
   }

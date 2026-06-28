@@ -50,7 +50,36 @@ class SiteFooter extends StatelessWidget {
       ),
     );
 
-    // Brand block sits in the middle, columns split to either side.
+    final decoration = const BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [HoneyColors.cream, Color(0xFFF7E7C9)],
+      ),
+    );
+
+    // On mobile: stack everything centered (brand on top, columns below).
+    if (compact) {
+      return Container(
+        width: double.infinity,
+        decoration: decoration,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            brand,
+            const SizedBox(height: 36),
+            for (final c in columns)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 28),
+                child: _FooterCol(column: c, center: true),
+              ),
+          ],
+        ),
+      );
+    }
+
+    // On desktop: brand in the middle, columns split to either side.
     final children = <Widget>[
       for (final c in columns.take(mid)) _FooterCol(column: c),
       brand,
@@ -58,15 +87,8 @@ class SiteFooter extends StatelessWidget {
     ];
 
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [HoneyColors.cream, Color(0xFFF7E7C9)],
-        ),
-      ),
-      padding: EdgeInsets.symmetric(
-          horizontal: compact ? 24 : 80, vertical: compact ? 36 : 52),
+      decoration: decoration,
+      padding: const EdgeInsets.symmetric(horizontal: 80, vertical: 52),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
         runSpacing: 32,
@@ -79,21 +101,24 @@ class SiteFooter extends StatelessWidget {
 
 class _FooterCol extends StatelessWidget {
   final FooterColumn column;
-  const _FooterCol({required this.column});
+  final bool center;
+  const _FooterCol({required this.column, this.center = false});
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          center ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       children: [
         Text(column.title,
+            textAlign: center ? TextAlign.center : TextAlign.start,
             style: HoneyTheme.serif(
                 size: 18, color: HoneyColors.pinkDeep, weight: FontWeight.w600)),
         const SizedBox(height: 12),
         for (final l in column.links)
           Padding(
             padding: const EdgeInsets.only(bottom: 7),
-            child: _FooterLinkText(link: l),
+            child: _FooterLinkText(link: l, center: center),
           ),
       ],
     );
@@ -102,7 +127,8 @@ class _FooterCol extends StatelessWidget {
 
 class _FooterLinkText extends StatefulWidget {
   final FooterLink link;
-  const _FooterLinkText({required this.link});
+  final bool center;
+  const _FooterLinkText({required this.link, this.center = false});
   @override
   State<_FooterLinkText> createState() => _FooterLinkTextState();
 }
@@ -125,6 +151,7 @@ class _FooterLinkTextState extends State<_FooterLinkText> {
     final hasLink = widget.link.url.isNotEmpty;
     final text = Text(
       widget.link.label,
+      textAlign: widget.center ? TextAlign.center : TextAlign.start,
       style: HoneyTheme.sans(
         size: 13,
         color: hasLink && _hover ? HoneyColors.pinkDeep : HoneyColors.text,
