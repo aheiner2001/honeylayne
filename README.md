@@ -1,11 +1,12 @@
 # Honey Layne 🐝🌸
 
-A romantic boutique storefront built with **Flutter Web**. It has two faces:
+A romantic boutique storefront built with **React + Vite + Tailwind CSS**. It has
+two faces:
 
 | Page | Link (custom domain) | Link (GitHub Pages) | Who it's for |
 | --- | --- | --- | --- |
-| **Storefront** | `https://honeylayne.com/` | `https://aheiner2001.github.io/honeylayne/` | Customers |
-| **Manager Studio** | `https://honeylayne.com/manage` | `https://aheiner2001.github.io/honeylayne/manage` | Your sister |
+| **Storefront** | `https://honeylayne.shop/` | `https://aheiner2001.github.io/honeylayne/` | Customers |
+| **Manager Studio** | `https://honeylayne.shop/manage` | `https://aheiner2001.github.io/honeylayne/manage` | Your sister |
 
 It's one site with a `/manage` route — only one thing to deploy, but two clean
 links to share. The app uses path-style URLs (no `#`), which works as long as
@@ -15,51 +16,78 @@ the host rewrites unknown paths back to the app (configured below).
 
 ## What the manager can do
 
-Log in with the manager password, then:
+Open `/manage`, log in with the access code, then:
 
 - **Turn top-bar menu links on/off** (Dresses, Tops, Bottoms, Accessories,
   About, Contact). *Home* and *Shop All* always stay on.
-- **Edit the homepage words** — the big hero headline and welcome text.
-- **Add / edit / remove products** — pick a photo from the phone, type a price,
-  choose a category, and paste an Instagram link. Each product card on the
-  storefront opens that Instagram link when tapped.
+- **Show/hide whole page sections** (hero, favorites, about story, etc.).
+- **Edit the words + photos** on the home, about, contact, and footer.
+- **Add / edit / remove products** — pick a photo, type a price, choose a
+  category, and paste an Instagram link. Each product card on the storefront
+  opens that Instagram link when tapped.
+- **Upload header art** (top-left, top-right, shop icon) as transparent PNGs.
+- **Change the access code** from inside the studio.
 
-### Manager password
+### Manager access code
 
-The password lives in `lib/data/store.dart`:
-
-```dart
-const kManagerPassword = 'honeybee';
-```
-
-Change it to whatever you want to give your sister, then rebuild/redeploy.
-(For a small shop this simple gate is plenty. If you want a "real" login later,
-Firebase Auth can be added.)
+The starting code is `honeybee`. Change it anytime from the **Access code** card
+in the studio — it's stored with the rest of your site settings. For a small
+shop this simple gate is plenty; when Firebase is connected, unlocking the
+studio also signs the browser in anonymously so it's allowed to save changes.
 
 ---
 
 ## Run it locally
 
 ```bash
-flutter pub get
-flutter run -d chrome
+npm install
+npm run dev
 ```
 
-- Storefront: the page that opens.
-- Manager: add `#/manager` to the URL.
+- Storefront: the page that opens (default `http://localhost:5173`).
+- Manager: add `/manage` to the URL.
+
+Useful scripts:
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Start the Vite dev server with hot reload. |
+| `npm run build` | Type-check-free production build into `dist/`. |
+| `npm run preview` | Serve the built `dist/` locally to sanity-check a release. |
+| `npm run typecheck` | Run `tsc --noEmit` to catch type errors. |
 
 By default the app stores products + settings **in your browser only**
-(no setup required). To make changes show up for everyone and store photos in
-the cloud, set up Firebase below.
+(`localStorage`, no setup required). To make changes show up for everyone and
+store photos in the cloud, connect Firebase below.
 
 ---
 
-## Custom domain with a clean `/manage` URL (recommended: Firebase Hosting)
+## Environment variables
 
-To get `honeylayne.com` and `honeylayne.com/manage`, use **Firebase Hosting**.
-It rewrites every path back to the app (so `/manage` loads directly and on
-refresh) and connects a custom domain in a few clicks. It also lives in the same
-Firebase project as your photos, so everything is in one place.
+Copy `.env.example` to `.env` and fill in real values. Vite only exposes
+variables prefixed with `VITE_` to the bundle.
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Purpose |
+| --- | --- |
+| `VITE_FIREBASE_*` | Firebase web config. When `VITE_FIREBASE_API_KEY` is present the app uses Firestore + Storage; otherwise it falls back to `localStorage`. |
+| `VITE_MANAGER_PASSWORD` | Optional starting access code (the code is also editable in-app and persisted with settings). |
+
+`.env` is gitignored. In CI these come from GitHub repo Secrets (see
+`.github/workflows/deploy.yml`).
+
+---
+
+## Deploy
+
+### Option A — Firebase Hosting (custom domain + clean `/manage`)
+
+Firebase Hosting rewrites every path back to the app (so `/manage` loads
+directly and on refresh) and connects a custom domain in a few clicks. It also
+lives in the same Firebase project as your photos.
 
 ```bash
 # one time
@@ -68,114 +96,98 @@ firebase login
 firebase use --add          # pick your Firebase project (updates .firebaserc)
 
 # each release
-flutter build web --release --no-tree-shake-icons   # base-href defaults to "/"
+npm run build
 firebase deploy --only hosting
 ```
 
-`firebase.json` in this repo already has the SPA rewrite:
+`firebase.json` already serves the Vite output and has the SPA rewrite:
 
 ```json
-"rewrites": [{ "source": "**", "destination": "/index.html" }]
+"hosting": {
+  "public": "dist",
+  "rewrites": [{ "source": "**", "destination": "/index.html" }]
+}
 ```
 
-### Connect the domain
-1. Buy `honeylayne.com` (Namecheap, Google Domains, Cloudflare, etc.).
-2. Firebase console → **Hosting → Add custom domain** → enter `honeylayne.com`.
-3. Add the DNS records Firebase shows you at your registrar. SSL is automatic.
-4. Done: storefront at `honeylayne.com`, manager at `honeylayne.com/manage`.
+**Connect the domain:** Firebase console → **Hosting → Add custom domain** →
+enter `honeylayne.shop`, add the DNS records it shows you at your registrar.
+SSL is automatic.
 
-## Deploy (GitHub Pages — also works)
+### Option B — GitHub Pages
 
-A workflow at `.github/workflows/deploy.yml` builds and publishes on every push
-to `main`. One-time setup:
+The workflow at `.github/workflows/deploy.yml` builds with Node + Vite and
+publishes on every push to `main`. One-time setup:
 
 1. Push this repo to GitHub.
-2. In the repo: **Settings → Pages → Build and deployment → Source = GitHub Actions**.
-3. Push to `main` (or run the workflow manually). Both links go live.
+2. **Settings → Pages → Build and deployment → Source = GitHub Actions**.
+3. Add your `FIREBASE_*` / `MANAGER_PASSWORD` values under
+   **Settings → Secrets and variables → Actions**.
+4. Push to `main` (or run the workflow manually).
 
-The workflow copies `index.html` to `404.html` so the clean `/manage` path also
-works here. You can point `honeylayne.com` at GitHub Pages too
-(**Settings → Pages → Custom domain**); if you do, change the workflow's
-`--base-href "/honeylayne/"` to `--base-href "/"`.
-
-> If you rename the repo, update `--base-href "/<repo-name>/"` in the workflow.
+The workflow copies `dist/index.html` to `dist/404.html` so the clean `/manage`
+path also works on Pages. The site is served at the apex domain, so
+`base` in `vite.config.ts` is `"/"`. If you drop the custom domain and use
+`aheiner2001.github.io/honeylayne/` instead, set `base` to `"/honeylayne/"`.
 
 ---
 
-## Optional: store data & photos in Firebase
+## Connect Firebase (data + photos in the cloud)
 
-Right now everything is saved in the browser. To share edits across devices and
-store uploaded photos in the cloud, connect Firebase. **You only need to do this
-when you're ready — the site works without it.**
+Right now everything can run from the browser's `localStorage`. To share edits
+across devices and store uploaded photos in the cloud, connect Firebase.
 
-### 1. Create the Firebase project
-- Go to <https://console.firebase.google.com> → **Add project** (name it e.g. `honey-layne`).
-- In the project, enable:
-  - **Firestore Database** (Start in *production* or *test* mode).
-  - **Storage**.
+1. **Create the project** at <https://console.firebase.google.com> and enable
+   **Firestore Database**, **Storage**, and **Authentication → Anonymous**.
+2. **Add a Web app** (Project settings → Your apps) and copy its config into
+   `.env` as the `VITE_FIREBASE_*` values above.
+3. **Deploy the security rules** in this repo:
 
-### 2. Connect it to this app
 ```bash
-dart pub global activate flutterfire_cli
-flutterfire configure
-```
-Pick your Firebase project and **Web** as the platform. This overwrites
-`lib/firebase_options.dart` with your real keys (these web keys are safe to commit).
-
-### 3. Turn it on
-In `lib/data/firebase_config.dart`:
-```dart
-const bool kUseFirebase = true;
+firebase deploy --only firestore:rules,storage
 ```
 
-### 4. Security rules (so only the site can read, edits stay controlled)
-In the Firebase console, set Firestore + Storage rules. A simple starting point
-(public read, writes allowed — fine for a tiny shop where only your sister has
-the manager password):
+   `firestore.rules` and `storage.rules` allow public read and writes only by a
+   signed-in manager (`if request.auth != null`). Unlocking the studio signs the
+   browser in anonymously so saves are allowed.
 
-```
-// Firestore
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{db}/documents {
-    match /{document=**} { allow read: if true; allow write: if true; }
-  }
-}
-```
-```
-// Storage
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /{allPaths=**} { allow read: if true; allow write: if true; }
-  }
-}
-```
+4. **(If photo uploads are CORS-blocked)** apply `cors.json` to the Storage
+   bucket:
 
-> Want it locked down properly later? Add **Firebase Auth** and change `write`
-> rules to `if request.auth != null`. Ask and this can be wired up.
+```bash
+gsutil cors set cors.json gs://<your-bucket>
+```
 
 ### What gets stored where
-- `products/{id}` documents in **Firestore** — name, price, category, Instagram link.
-- `site/settings` document — menu toggles + homepage words.
-- `products/{id}.jpg` in **Storage** — the uploaded photos.
+- `products/{id}` documents in **Firestore** — name, price, category, links.
+- `site/settings` document — menu/section toggles + all editable copy/images.
+- product photos in **Storage** (`products/…`), header art in `header/…`.
 
 ---
 
 ## Project layout
 
 ```
-lib/
-  main.dart                 app entry + routing (/ and /manager)
-  theme/honey_theme.dart    colors + fonts
-  models/                   Product, SiteSettings
+index.html                 Vite entry HTML
+vite.config.ts             Vite config (base, build outDir = dist)
+tailwind.config.js         brand colors + fonts
+postcss.config.js          Tailwind + autoprefixer
+src/
+  main.tsx                 app bootstrap (Router + store provider)
+  App.tsx                  routes (/, /shop, /about, /contact, /manage)
+  index.css                Tailwind layers + brand type helpers
+  types.ts                 data models + SiteSettings + (de)serialization
+  seed.ts                  starter products
+  store/HoneyStore.tsx     app state, backend wiring, manager auth
   data/
-    store.dart              app state + manager password
-    backend.dart            storage interface + LocalBackend
-    firebase_backend.dart   Firestore + Storage backend
-    firebase_config.dart    kUseFirebase flag
-    seed.dart               starter products
-  widgets/                  header, footer, product card, image helper
-  pages/                    home_page (storefront), manager_page (studio)
-assets/images/              florals, bees, hero + product photos
+    firebase.ts            Firebase init (reads VITE_FIREBASE_* env)
+    backend.ts             storage interface + LocalBackend + FirebaseBackend
+  lib/util.ts              small helpers (image src resolve, open link, cx)
+  components/              header, footer, product card/image, icons
+    manager/ui.tsx         studio UI primitives (fields, switches, toasts)
+  pages/                   home, shop, about, contact, manager
+public/
+  assets/images/           florals, bees, hero + product photos
+  icons/                   PWA icons
+  manifest.json, favicon.png, CNAME
+tool/make_transparent.py   helper to knock white backgrounds out of PNG art
 ```

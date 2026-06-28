@@ -1,0 +1,17 @@
+{
+  "name": "Honey Layne",
+  "short_name": "Honey Layne",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FCEFC7",
+  "theme_color": "#F7B6C2",
+  "description": "Romantic, feminine fashion. Sweet pieces made to make you feel beautiful.",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "icons/Icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/Icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/Icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/Icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
