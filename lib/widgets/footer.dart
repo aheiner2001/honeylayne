@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -34,13 +35,15 @@ class SiteFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _Social(Icons.camera_alt_outlined,
-                  onTap: () => _open(settings.contactInstagram)),
-              const _Social(Icons.alternate_email),
-              const _Social(Icons.favorite_border),
-              _Social(Icons.mail_outline,
+                  onTap: settings.contactInstagram.isEmpty
+                      ? null
+                      : () => _open(settings.contactInstagram)),
+              _Social(Icons.alternate_email,
                   onTap: settings.contactEmail.isEmpty
                       ? null
                       : () => _open('mailto:${settings.contactEmail}')),
+              _Social(Icons.favorite_border, onTap: () => context.go('/shop')),
+              _Social(Icons.mail_outline, onTap: () => context.go('/contact')),
             ],
           ),
         ],
@@ -90,11 +93,50 @@ class _FooterCol extends StatelessWidget {
         for (final l in column.links)
           Padding(
             padding: const EdgeInsets.only(bottom: 7),
-            child: Text(l,
-                style: HoneyTheme.sans(
-                    size: 13, color: HoneyColors.text, weight: FontWeight.w400)),
+            child: _FooterLinkText(link: l),
           ),
       ],
+    );
+  }
+}
+
+class _FooterLinkText extends StatefulWidget {
+  final FooterLink link;
+  const _FooterLinkText({required this.link});
+  @override
+  State<_FooterLinkText> createState() => _FooterLinkTextState();
+}
+
+class _FooterLinkTextState extends State<_FooterLinkText> {
+  bool _hover = false;
+
+  void _go() {
+    final url = widget.link.url;
+    if (url.isEmpty) return;
+    if (url.startsWith('/')) {
+      context.go(url);
+    } else {
+      _open(url);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasLink = widget.link.url.isNotEmpty;
+    final text = Text(
+      widget.link.label,
+      style: HoneyTheme.sans(
+        size: 13,
+        color: hasLink && _hover ? HoneyColors.pinkDeep : HoneyColors.text,
+        weight: FontWeight.w400,
+      ),
+    );
+    if (!hasLink) return text;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(onTap: _go, child: text),
     );
   }
 }

@@ -26,6 +26,8 @@ class ManagerPage extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+enum _GateMode { signin, setup, reset }
+
 class _PasswordGate extends StatefulWidget {
   const _PasswordGate();
   @override
@@ -33,69 +35,227 @@ class _PasswordGate extends StatefulWidget {
 }
 
 class _PasswordGateState extends State<_PasswordGate> {
-  final _controller = TextEditingController();
-  bool _error = false;
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  final _code = TextEditingController();
+  final _legacy = TextEditingController();
 
-  void _submit() {
-    final ok = context.read<HoneyStore>().unlock(_controller.text.trim());
-    setState(() => _error = !ok);
+  _GateMode _mode = _GateMode.signin;
+  bool _busy = false;
+  String? _error;
+  String? _info;
+
+  Future<void> _run(Future<String?> Function() action,
+      {String? success}) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+      _info = null;
+    });
+    final err = await action();
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _error = err;
+      _info = err == null ? success : null;
+    });
+  }
+
+  void _legacySubmit() {
+    final ok = context.read<HoneyStore>().unlock(_legacy.text.trim());
+    setState(() => _error = ok ? null : 'Incorrect password');
   }
 
   @override
   Widget build(BuildContext context) {
+    final store = context.read<HoneyStore>();
     return Center(
-      child: Container(
-        width: 380,
-        margin: const EdgeInsets.all(24),
-        padding: const EdgeInsets.fromLTRB(32, 36, 32, 32),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-                color: HoneyColors.pink.withValues(alpha: 0.2),
-                blurRadius: 30,
-                offset: const Offset(0, 12)),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Honey Layne', style: HoneyTheme.logoFont(size: 44)),
-            Text('Manager Studio',
-                style: HoneyTheme.serif(
-                    size: 18, color: HoneyColors.text, weight: FontWeight.w500)),
-            const SizedBox(height: 24),
-            TextField(
-              controller: _controller,
-              obscureText: true,
-              onSubmitted: (_) => _submit(),
-              decoration: InputDecoration(
-                hintText: 'Manager password',
-                errorText: _error ? 'Incorrect password' : null,
-                filled: true,
-                fillColor: HoneyColors.cream,
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none),
+      child: SingleChildScrollView(
+        child: Container(
+          width: 400,
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(32, 36, 32, 32),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                  color: HoneyColors.pink.withValues(alpha: 0.2),
+                  blurRadius: 30,
+                  offset: const Offset(0, 12)),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Honey Layne',
+                  textAlign: TextAlign.center,
+                  style: HoneyTheme.logoFont(size: 44)),
+              Text('Manager Studio',
+                  textAlign: TextAlign.center,
+                  style: HoneyTheme.serif(
+                      size: 18,
+                      color: HoneyColors.text,
+                      weight: FontWeight.w500)),
+              const SizedBox(height: 22),
+              if (store.authEnabled)
+                ..._authForm(store)
+              else
+                ..._legacyForm(),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!,
+                    textAlign: TextAlign.center,
+                    style: HoneyTheme.sans(
+                        size: 13, color: HoneyColors.pinkDeep)),
+              ],
+              if (_info != null) ...[
+                const SizedBox(height: 12),
+                Text(_info!,
+                    textAlign: TextAlign.center,
+                    style: HoneyTheme.sans(size: 13, color: HoneyColors.pink)),
+              ],
+              const SizedBox(height: 14),
+              TextButton(
+                onPressed: () => context.go('/'),
+                child: Text('Back to store',
+                    style: HoneyTheme.sans(size: 13, color: HoneyColors.pink)),
               ),
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: _PinkButton(label: 'ENTER STUDIO', onTap: _submit),
-            ),
-            const SizedBox(height: 14),
-            TextButton(
-              onPressed: () => context.go('/'),
-              child: Text('Back to store',
-                  style: HoneyTheme.sans(size: 13, color: HoneyColors.pink)),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+
+  // Simple build-time password (used when Firebase isn't configured).
+  List<Widget> _legacyForm() => [
+        TextField(
+          controller: _legacy,
+          obscureText: true,
+          onSubmitted: (_) => _legacySubmit(),
+          decoration: _dec('Manager password'),
+        ),
+        const SizedBox(height: 18),
+        _PinkButton(label: 'ENTER STUDIO', onTap: _legacySubmit),
+      ];
+
+  // Firebase email/password with first-time setup + reset.
+  List<Widget> _authForm(HoneyStore store) {
+    final emailField = TextField(
+      controller: _email,
+      keyboardType: TextInputType.emailAddress,
+      decoration: _dec('Email'),
+    );
+    final pwField = TextField(
+      controller: _password,
+      obscureText: true,
+      onSubmitted: (_) => _primaryAction(store),
+      decoration: _dec(_mode == _GateMode.setup ? 'Create a password' : 'Password'),
+    );
+
+    switch (_mode) {
+      case _GateMode.signin:
+        return [
+          emailField,
+          const SizedBox(height: 12),
+          pwField,
+          const SizedBox(height: 18),
+          _busy
+              ? const _Spinner()
+              : _PinkButton(label: 'SIGN IN', onTap: () => _primaryAction(store)),
+          const SizedBox(height: 6),
+          _link('Forgot password?', () => setState(() => _mode = _GateMode.reset)),
+          _link('First time? Set up your account',
+              () => setState(() => _mode = _GateMode.setup)),
+        ];
+      case _GateMode.setup:
+        return [
+          Text('Use the one-time setup code, then your email and a password.',
+              textAlign: TextAlign.center,
+              style: HoneyTheme.sans(size: 12, color: HoneyColors.textSoft)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _code,
+            obscureText: true,
+            decoration: _dec('One-time setup code'),
+          ),
+          const SizedBox(height: 12),
+          emailField,
+          const SizedBox(height: 12),
+          pwField,
+          const SizedBox(height: 18),
+          _busy
+              ? const _Spinner()
+              : _PinkButton(
+                  label: 'CREATE ACCOUNT', onTap: () => _primaryAction(store)),
+          const SizedBox(height: 6),
+          _link('Already set up? Sign in',
+              () => setState(() => _mode = _GateMode.signin)),
+        ];
+      case _GateMode.reset:
+        return [
+          Text('Enter your email and we\'ll send a reset link.',
+              textAlign: TextAlign.center,
+              style: HoneyTheme.sans(size: 12, color: HoneyColors.textSoft)),
+          const SizedBox(height: 12),
+          emailField,
+          const SizedBox(height: 18),
+          _busy
+              ? const _Spinner()
+              : _PinkButton(
+                  label: 'SEND RESET LINK', onTap: () => _primaryAction(store)),
+          const SizedBox(height: 6),
+          _link('Back to sign in',
+              () => setState(() => _mode = _GateMode.signin)),
+        ];
+    }
+  }
+
+  void _primaryAction(HoneyStore store) {
+    switch (_mode) {
+      case _GateMode.signin:
+        _run(() => store.signIn(_email.text, _password.text));
+      case _GateMode.setup:
+        _run(() =>
+            store.registerManager(_email.text, _password.text, _code.text));
+      case _GateMode.reset:
+        _run(() => store.sendPasswordReset(_email.text),
+            success: 'Reset link sent — check your email.');
+    }
+  }
+
+  Widget _link(String label, VoidCallback onTap) => TextButton(
+        onPressed: onTap,
+        child: Text(label,
+            style: HoneyTheme.sans(size: 13, color: HoneyColors.pink)),
+      );
+
+  InputDecoration _dec(String hint) => InputDecoration(
+        hintText: hint,
+        filled: true,
+        fillColor: HoneyColors.cream,
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none),
+      );
+}
+
+class _Spinner extends StatelessWidget {
+  const _Spinner();
+  @override
+  Widget build(BuildContext context) => const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 6),
+          child: SizedBox(
+            width: 26,
+            height: 26,
+            child: CircularProgressIndicator(
+                color: HoneyColors.pink, strokeWidth: 2.4),
+          ),
+        ),
+      );
 }
 
 // ---------------------------------------------------------------------------
@@ -788,8 +948,19 @@ class _FooterEditorState extends State<_FooterEditor> {
   ];
   late final List<TextEditingController> _links = [
     for (final c in widget.settings.footerColumns)
-      TextEditingController(text: c.links.join('\n')),
+      TextEditingController(
+          text: c.links.map(_linkToLine).join('\n')),
   ];
+
+  static String _linkToLine(FooterLink l) =>
+      l.url.isEmpty ? l.label : '${l.label} | ${l.url}';
+
+  static FooterLink _lineToLink(String line) {
+    final i = line.indexOf('|');
+    if (i < 0) return FooterLink(label: line.trim());
+    return FooterLink(
+        label: line.substring(0, i).trim(), url: line.substring(i + 1).trim());
+  }
 
   void _save() {
     final store = context.read<HoneyStore>();
@@ -800,8 +971,8 @@ class _FooterEditorState extends State<_FooterEditor> {
           links: _links[i]
               .text
               .split('\n')
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
+              .where((e) => e.trim().isNotEmpty)
+              .map(_lineToLink)
               .toList(),
         ),
     ];
@@ -815,8 +986,17 @@ class _FooterEditorState extends State<_FooterEditor> {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _Field(controller: _tagline, label: 'Tagline (under the logo)'),
+        const SizedBox(height: 10),
+        Text(
+          'Links: one per line. To make a link clickable add "  | link" after '
+          'the name — e.g. "Dresses | /shop/Dresses" for a page on this site, '
+          'or "Instagram | https://instagram.com/_honeylayne/" for an outside '
+          'link. No "|" = plain text.',
+          style: HoneyTheme.sans(size: 12, color: HoneyColors.textSoft),
+        ),
         const SizedBox(height: 14),
         Wrap(
           spacing: 16,
@@ -824,15 +1004,15 @@ class _FooterEditorState extends State<_FooterEditor> {
           children: [
             for (var i = 0; i < _titles.length; i++)
               SizedBox(
-                width: 220,
+                width: 260,
                 child: Column(
                   children: [
                     _Field(controller: _titles[i], label: 'Column ${i + 1} title'),
                     const SizedBox(height: 8),
                     _Field(
                       controller: _links[i],
-                      label: 'Links (one per line)',
-                      maxLines: 5,
+                      label: 'Links (Name | link)',
+                      maxLines: 6,
                     ),
                   ],
                 ),

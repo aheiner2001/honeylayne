@@ -97,10 +97,30 @@ class SiteSettings {
   ];
 
   static const defaultFooterColumns = [
-    FooterColumn(title: 'Shop', links: ['Dresses', 'Tops', 'Bottoms', 'Accessories', 'Shop All']),
-    FooterColumn(title: 'Help', links: ['Shipping & Returns', 'FAQs', 'Size Guide', 'Contact Us']),
-    FooterColumn(title: 'About', links: ['Our Story', 'Sustainability', 'Lookbook', 'Careers']),
-    FooterColumn(title: 'Legal', links: ['Terms of Service', 'Privacy Policy', 'Accessibility']),
+    FooterColumn(title: 'Shop', links: [
+      FooterLink(label: 'Dresses', url: '/shop/Dresses'),
+      FooterLink(label: 'Tops', url: '/shop/Tops'),
+      FooterLink(label: 'Bottoms', url: '/shop/Bottoms'),
+      FooterLink(label: 'Accessories', url: '/shop/Accessories'),
+      FooterLink(label: 'Shop All', url: '/shop'),
+    ]),
+    FooterColumn(title: 'Help', links: [
+      FooterLink(label: 'Contact Us', url: '/contact'),
+      FooterLink(label: 'Shipping & Returns'),
+      FooterLink(label: 'FAQs'),
+      FooterLink(label: 'Size Guide'),
+    ]),
+    FooterColumn(title: 'About', links: [
+      FooterLink(label: 'Our Story', url: '/about'),
+      FooterLink(label: 'Sustainability'),
+      FooterLink(label: 'Lookbook'),
+      FooterLink(label: 'Careers'),
+    ]),
+    FooterColumn(title: 'Legal', links: [
+      FooterLink(label: 'Terms of Service'),
+      FooterLink(label: 'Privacy Policy'),
+      FooterLink(label: 'Accessibility'),
+    ]),
   ];
 
   factory SiteSettings.initial() => SiteSettings(
@@ -235,17 +255,41 @@ class FeatureItem {
       FeatureItem(icon: j['icon'] as String? ?? 'heart', text: j['text'] as String? ?? '');
 }
 
+/// A single footer link: a [label] and an optional [url]. The url may be an
+/// internal route (e.g. "/shop/Dresses") or an external link
+/// (e.g. "https://instagram.com/..."). Empty url = plain, non-clickable text.
+class FooterLink {
+  final String label;
+  final String url;
+  const FooterLink({required this.label, this.url = ''});
+
+  FooterLink copyWith({String? label, String? url}) =>
+      FooterLink(label: label ?? this.label, url: url ?? this.url);
+
+  Map<String, dynamic> toJson() => {'label': label, 'url': url};
+  factory FooterLink.fromJson(Map<String, dynamic> j) =>
+      FooterLink(label: j['label'] as String? ?? '', url: j['url'] as String? ?? '');
+}
+
 class FooterColumn {
   final String title;
-  final List<String> links;
+  final List<FooterLink> links;
   const FooterColumn({required this.title, required this.links});
 
-  FooterColumn copyWith({String? title, List<String>? links}) =>
+  FooterColumn copyWith({String? title, List<FooterLink>? links}) =>
       FooterColumn(title: title ?? this.title, links: links ?? this.links);
 
-  Map<String, dynamic> toJson() => {'title': title, 'links': links};
+  Map<String, dynamic> toJson() =>
+      {'title': title, 'links': links.map((l) => l.toJson()).toList()};
+
   factory FooterColumn.fromJson(Map<String, dynamic> j) => FooterColumn(
         title: j['title'] as String? ?? '',
-        links: (j['links'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+        links: (j['links'] as List?)
+                ?.map((e) => e is Map
+                    ? FooterLink.fromJson(e.cast<String, dynamic>())
+                    // Migrate old string-only links.
+                    : FooterLink(label: e.toString()))
+                .toList() ??
+            const [],
       );
 }

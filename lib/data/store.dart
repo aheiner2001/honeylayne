@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/product.dart';
@@ -5,29 +6,45 @@ import '../models/site_settings.dart';
 import 'backend.dart';
 import 'seed.dart';
 
-/// Manager password. Injected at build time from `--dart-define-from-file=.env`
-/// (locally) or the MANAGER_PASSWORD GitHub Secret (in CI), so the real password
-/// never lives in source. The default is only a placeholder for dev builds that
-/// forget to pass it.
+/// One-time setup code used to register the very first manager account.
+/// Injected at build time from `--dart-define-from-file=.env` (locally) or the
+/// MANAGER_PASSWORD GitHub Secret (in CI), so it never lives in source. After
+/// the manager registers her email, she logs in with email + password and this
+/// code is no longer needed for day-to-day access.
 const kManagerPassword =
     String.fromEnvironment('MANAGER_PASSWORD', defaultValue: 'changeme');
 
 /// App-wide state: catalog, site settings, manager auth. Reads/writes go
 /// through a [HoneyBackend] (local browser storage or Firebase).
 class HoneyStore extends ChangeNotifier {
-  HoneyStore(this._backend);
+  HoneyStore(this._backend, {this.authEnabled = false}) {
+    if (authEnabled) {
+      FirebaseAuth.instance.authStateChanges().listen((user) {
+        _managerUnlocked = user != null;
+        _managerEmail = user?.email;
+        notifyListeners();
+      });
+    }
+  }
 
   final HoneyBackend _backend;
+
+  /// True when Firebase is configured, so manager auth uses email/password
+  /// accounts. When false (e.g. local dev without Firebase) the studio falls
+  /// back to the simple build-time password gate.
+  final bool authEnabled;
 
   List<Product> _products = List.of(seedProducts);
   SiteSettings _settings = SiteSettings.initial();
   bool _managerUnlocked = false;
+  String? _managerEmail;
   bool _loaded = false;
 
   List<Product> get products => List.unmodifiable(_products);
   List<Product> get favorites => _products.where((p) => p.favorite).toList();
   SiteSettings get settings => _settings;
   bool get managerUnlocked => _managerUnlocked;
+  String? get managerEmail => _managerEmail;
   bool get loaded => _loaded;
 
   List<Product> byCategory(String category) =>
@@ -47,8 +64,8 @@ class HoneyStore extends ChangeNotifier {
   }
 
   // ---- Manager auth ----
+  /// Local fallback gate (used only when [authEnabled] is false).
   bool unlock(String password) {
-    // Reject empty passwords so a missing MANAGER_PASSWORD can never unlock.
     if (kManagerPassword.isNotEmpty && password == kManagerPassword) {
       _managerUnlocked = true;
       notifyListeners();
@@ -57,9 +74,82 @@ class HoneyStore extends ChangeNotifier {
     return false;
   }
 
+  /// Sign in an existing manager. Returns null on success, else an error
+  /// message to show.
+  Future<String?> signIn(String email, String password) async {
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email.trim(), password: password);
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return _authMessage(e);
+    } catch (e) {
+      return 'Could not sign in. Please try again.';
+    }
+  }
+
+  /// First-time setup: register the manager account, gated by the one-time
+  /// setup code. Returns null on success, else an error message.
+  Future<String?> registerManager(
+      String email, String password, String code) async {
+    if (kManagerPassword.isEmpty || code.trim() != kManagerPassword) {
+      return 'That setup code is incorrect.';
+    }
+    if (password.length < 6) {
+      return 'Choose a password with at least 6 characters.';
+    }
+    try {
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: email.trim(), password: password);
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return _authMessage(e);
+    } catch (e) {
+      return 'Could not create the account. Please try again.';
+    }
+  }
+
+  /// Send a password-reset email. Returns null on success, else a message.
+  Future<String?> sendPasswordReset(String email) async {
+    try {
+      await FirebaseAuth.instance
+          .sendPasswordResetEmail(email: email.trim());
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return _authMessage(e);
+    } catch (e) {
+      return 'Could not send the reset email. Please try again.';
+    }
+  }
+
+  String _authMessage(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'That email address looks invalid.';
+      case 'user-not-found':
+      case 'invalid-credential':
+      case 'wrong-password':
+        return 'Email or password is incorrect.';
+      case 'email-already-in-use':
+        return 'An account already exists for that email — just sign in.';
+      case 'weak-password':
+        return 'Choose a stronger password (at least 6 characters).';
+      case 'operation-not-allowed':
+        return 'Email/password sign-in is not enabled in Firebase yet.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please wait a moment and try again.';
+      default:
+        return e.message ?? 'Authentication failed.';
+    }
+  }
+
   void lock() {
-    _managerUnlocked = false;
-    notifyListeners();
+    if (authEnabled) {
+      FirebaseAuth.instance.signOut();
+    } else {
+      _managerUnlocked = false;
+      notifyListeners();
+    }
   }
 
   // ---- Images ----

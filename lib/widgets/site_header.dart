@@ -160,11 +160,11 @@ class _UtilityIcons extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: const [
-        _Icon(Icons.search),
+        _Icon(Icons.search, route: '/shop', tooltip: 'Browse'),
         SizedBox(width: 14),
-        _Icon(Icons.person_outline),
+        _Icon(Icons.person_outline, route: '/manage', tooltip: 'Manager'),
         SizedBox(width: 14),
-        _Icon(Icons.shopping_bag_outlined),
+        _Icon(Icons.shopping_bag_outlined, route: '/shop', tooltip: 'Shop'),
       ],
     );
   }
@@ -172,10 +172,21 @@ class _UtilityIcons extends StatelessWidget {
 
 class _Icon extends StatelessWidget {
   final IconData icon;
-  const _Icon(this.icon);
+  final String route;
+  final String tooltip;
+  const _Icon(this.icon, {required this.route, required this.tooltip});
 
   @override
   Widget build(BuildContext context) {
-    return Icon(icon, size: 20, color: HoneyColors.pinkDeep);
+    return Tooltip(
+      message: tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => context.go(route),
+          child: Icon(icon, size: 20, color: HoneyColors.pinkDeep),
+        ),
+      ),
+    );
   }
 }

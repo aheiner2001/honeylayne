@@ -24,11 +24,13 @@ Future<void> main() async {
   usePathUrlStrategy();
 
   HoneyBackend backend = LocalBackend();
+  bool authEnabled = false;
   if (kUseFirebase && DefaultFirebaseOptions.isConfigured) {
     try {
       await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform);
       backend = FirebaseBackend();
+      authEnabled = true;
     } catch (e, st) {
       // Never blank the site if Firebase has a hiccup — fall back to local.
       debugPrint('FIREBASE_INIT_FAILED: $e');
@@ -36,7 +38,7 @@ Future<void> main() async {
     }
   }
 
-  final store = HoneyStore(backend)..load();
+  final store = HoneyStore(backend, authEnabled: authEnabled)..load();
   runApp(HoneyApp(store: store));
 }
 
@@ -46,19 +48,26 @@ class HoneyApp extends StatelessWidget {
 
   late final _router = GoRouter(
     routes: [
-      GoRoute(path: '/', builder: (_, _) => const HomePage()),
-      GoRoute(path: '/shop', builder: (_, _) => const ShopPage()),
+      _page('/', const HomePage()),
+      _page('/shop', const ShopPage()),
       GoRoute(
         path: '/shop/:category',
-        builder: (_, s) => ShopPage(category: s.pathParameters['category']),
+        pageBuilder: (_, s) => NoTransitionPage(
+            child: ShopPage(category: s.pathParameters['category'])),
       ),
-      GoRoute(path: '/about', builder: (_, _) => const AboutPage()),
-      GoRoute(path: '/contact', builder: (_, _) => const ContactPage()),
-      GoRoute(path: '/manage', builder: (_, _) => const ManagerPage()),
+      _page('/about', const AboutPage()),
+      _page('/contact', const ContactPage()),
+      _page('/manage', const ManagerPage()),
       // Keep the old link working.
       GoRoute(path: '/manager', redirect: (_, _) => '/manage'),
     ],
   );
+
+  // A route that swaps in instantly — no slide/fade animation.
+  static GoRoute _page(String path, Widget child) => GoRoute(
+        path: path,
+        pageBuilder: (_, _) => NoTransitionPage(child: child),
+      );
 
   @override
   Widget build(BuildContext context) {
