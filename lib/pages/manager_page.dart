@@ -34,48 +34,32 @@ class _PasswordGate extends StatefulWidget {
 }
 
 class _PasswordGateState extends State<_PasswordGate> {
-  final _legacy = TextEditingController();
-  final _gatePw = TextEditingController();
+  final _code = TextEditingController();
   bool _busy = false;
   String? _error;
 
-  Future<void> _signInGoogle() async {
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
     final store = context.read<HoneyStore>();
     setState(() {
       _busy = true;
       _error = null;
     });
-    final err = await store.signInWithGoogle();
+    final ok = await store.unlock(_code.text.trim());
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _error = err;
+      _error = ok ? null : 'Incorrect access code.';
     });
-  }
-
-  // First time on this account: enter the access code once to authorize it.
-  Future<void> _authorize() async {
-    final store = context.read<HoneyStore>();
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    final err = await store.approveCurrentManager(_gatePw.text);
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _error = err;
-    });
-  }
-
-  void _legacySubmit() {
-    final ok = context.read<HoneyStore>().unlock(_legacy.text.trim());
-    setState(() => _error = ok ? null : 'Incorrect password');
   }
 
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<HoneyStore>();
     return Center(
       child: SingleChildScrollView(
         child: Container(
@@ -106,10 +90,30 @@ class _PasswordGateState extends State<_PasswordGate> {
                       color: HoneyColors.text,
                       weight: FontWeight.w500)),
               const SizedBox(height: 22),
-              if (store.authEnabled)
-                ..._googleForm()
+              Text('Enter your access code to manage your store.',
+                  textAlign: TextAlign.center,
+                  style:
+                      HoneyTheme.sans(size: 13, color: HoneyColors.textSoft)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _code,
+                obscureText: true,
+                autofocus: true,
+                onSubmitted: (_) => _submit(),
+                decoration: InputDecoration(
+                  hintText: 'Access code',
+                  filled: true,
+                  fillColor: HoneyColors.cream,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 18),
+              if (_busy)
+                const _Spinner()
               else
-                ..._legacyForm(),
+                _PinkButton(label: 'ENTER STUDIO', onTap: _submit),
               if (_error != null) ...[
                 const SizedBox(height: 12),
                 Text(_error!,
@@ -126,129 +130,6 @@ class _PasswordGateState extends State<_PasswordGate> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  // Google sign-in when Firebase is configured. The access code is only asked
-  // for the first time an account signs in; after that it's remembered.
-  List<Widget> _googleForm() {
-    final store = context.watch<HoneyStore>();
-
-    // Signed in, but this email hasn't been authorized yet → ask for the code.
-    if (store.needsApproval) {
-      return [
-        Text(
-          'Signed in as ${store.managerEmail ?? ''}.\n'
-          'Enter the access code once to authorize this account.',
-          textAlign: TextAlign.center,
-          style: HoneyTheme.sans(size: 13, color: HoneyColors.textSoft),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _gatePw,
-          obscureText: true,
-          autofocus: true,
-          onSubmitted: (_) => _authorize(),
-          decoration: InputDecoration(
-            hintText: 'Access code',
-            filled: true,
-            fillColor: HoneyColors.cream,
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none),
-          ),
-        ),
-        const SizedBox(height: 16),
-        if (_busy)
-          const _Spinner()
-        else
-          _PinkButton(label: 'AUTHORIZE', onTap: _authorize),
-        const SizedBox(height: 6),
-        TextButton(
-          onPressed: () => context.read<HoneyStore>().lock(),
-          child: Text('Use a different account',
-              style: HoneyTheme.sans(size: 13, color: HoneyColors.pink)),
-        ),
-      ];
-    }
-
-    // Not signed in yet → just offer Google. Returning approved accounts skip
-    // the code entirely.
-    return [
-      Text('Sign in with Google to manage your store.',
-          textAlign: TextAlign.center,
-          style: HoneyTheme.sans(size: 13, color: HoneyColors.textSoft)),
-      const SizedBox(height: 16),
-      if (_busy)
-        const _Spinner()
-      else
-        _GoogleButton(onTap: _signInGoogle),
-    ];
-  }
-
-  // Simple build-time password (used when Firebase isn't configured).
-  List<Widget> _legacyForm() => [
-        TextField(
-          controller: _legacy,
-          obscureText: true,
-          onSubmitted: (_) => _legacySubmit(),
-          decoration: InputDecoration(
-            hintText: 'Manager password',
-            filled: true,
-            fillColor: HoneyColors.cream,
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none),
-          ),
-        ),
-        const SizedBox(height: 18),
-        _PinkButton(label: 'ENTER STUDIO', onTap: _legacySubmit),
-      ];
-}
-
-class _GoogleButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _GoogleButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: HoneyColors.text,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
-        side: const BorderSide(color: HoneyColors.blushDeep, width: 1.2),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Simple multi-color "G" stand-in (no asset needed).
-          Container(
-            width: 22,
-            height: 22,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0xFF4285F4),
-            ),
-            child: const Text('G',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14)),
-          ),
-          const SizedBox(width: 12),
-          Text('Continue with Google',
-              style: HoneyTheme.sans(
-                  size: 14,
-                  color: HoneyColors.text,
-                  weight: FontWeight.w600)),
-        ],
       ),
     );
   }
