@@ -18,6 +18,10 @@ abstract class HoneyBackend {
   /// Persists an uploaded image and returns a value usable by [Image]:
   /// a data URI (local) or an https download URL (Firebase Storage).
   Future<String> uploadImage(Uint8List bytes, String productId);
+
+  /// Like [uploadImage] but keeps the bytes as a PNG (transparency preserved).
+  /// Used for header art and icons.
+  Future<String> uploadImagePng(Uint8List bytes, String key);
 }
 
 /// Stores everything in the browser via shared_preferences. Images are kept
@@ -66,5 +70,10 @@ class LocalBackend implements HoneyBackend {
   @override
   Future<String> uploadImage(Uint8List bytes, String productId) async {
     return 'data:image/jpeg;base64,${base64Encode(bytes)}';
+  }
+
+  @override
+  Future<String> uploadImagePng(Uint8List bytes, String key) async {
+    return 'data:image/png;base64,${base64Encode(bytes)}';
   }
 }

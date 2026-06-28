@@ -34,6 +34,16 @@ class SiteSettings {
   final String footerTagline;
   final List<FooterColumn> footerColumns;
 
+  // ---- Header decorations (manager-uploadable PNGs) ----
+  final String headerLeftImageUrl; // bees / top-left
+  final String headerRightImageUrl; // florals / top-right
+  final String headerShopIconUrl; // shop icon -> Instagram
+
+  // ---- Manager access ----
+  /// Password required (in addition to Google sign-in) to open the studio.
+  /// Editable from Manager settings. Defaults to 'honeybee'.
+  final String managerPassword;
+
   // Kept for backwards compatibility with older saved data.
   final String storyText;
 
@@ -62,6 +72,10 @@ class SiteSettings {
     this.contactPhone = '',
     this.footerTagline = 'Romantic pieces made\nto make you feel beautiful.',
     this.footerColumns = defaultFooterColumns,
+    this.headerLeftImageUrl = 'assets/images/bees_trail.png',
+    this.headerRightImageUrl = 'assets/images/floral_topright.png',
+    this.headerShopIconUrl = 'assets/images/shop_icon.png',
+    this.managerPassword = 'honeybee',
     this.storyText = '',
   });
 
@@ -155,6 +169,10 @@ class SiteSettings {
     String? contactPhone,
     String? footerTagline,
     List<FooterColumn>? footerColumns,
+    String? headerLeftImageUrl,
+    String? headerRightImageUrl,
+    String? headerShopIconUrl,
+    String? managerPassword,
   }) =>
       SiteSettings(
         navEnabled: navEnabled ?? this.navEnabled,
@@ -178,6 +196,10 @@ class SiteSettings {
         contactPhone: contactPhone ?? this.contactPhone,
         footerTagline: footerTagline ?? this.footerTagline,
         footerColumns: footerColumns ?? this.footerColumns,
+        headerLeftImageUrl: headerLeftImageUrl ?? this.headerLeftImageUrl,
+        headerRightImageUrl: headerRightImageUrl ?? this.headerRightImageUrl,
+        headerShopIconUrl: headerShopIconUrl ?? this.headerShopIconUrl,
+        managerPassword: managerPassword ?? this.managerPassword,
       );
 
   Map<String, dynamic> toJson() => {
@@ -202,6 +224,10 @@ class SiteSettings {
         'contactPhone': contactPhone,
         'footerTagline': footerTagline,
         'footerColumns': footerColumns.map((c) => c.toJson()).toList(),
+        'headerLeftImageUrl': headerLeftImageUrl,
+        'headerRightImageUrl': headerRightImageUrl,
+        'headerShopIconUrl': headerShopIconUrl,
+        'managerPassword': managerPassword,
       };
 
   factory SiteSettings.fromJson(Map<String, dynamic> j) {
@@ -238,6 +264,19 @@ class SiteSettings {
       contactPhone: j['contactPhone'] as String? ?? defaults.contactPhone,
       footerTagline: j['footerTagline'] as String? ?? defaults.footerTagline,
       footerColumns: (cols == null || cols.isEmpty) ? defaultFooterColumns : cols,
+      headerLeftImageUrl: (j['headerLeftImageUrl'] as String?)?.isNotEmpty == true
+          ? j['headerLeftImageUrl'] as String
+          : defaults.headerLeftImageUrl,
+      headerRightImageUrl:
+          (j['headerRightImageUrl'] as String?)?.isNotEmpty == true
+              ? j['headerRightImageUrl'] as String
+              : defaults.headerRightImageUrl,
+      headerShopIconUrl: (j['headerShopIconUrl'] as String?)?.isNotEmpty == true
+          ? j['headerShopIconUrl'] as String
+          : defaults.headerShopIconUrl,
+      managerPassword: (j['managerPassword'] as String?)?.isNotEmpty == true
+          ? j['managerPassword'] as String
+          : defaults.managerPassword,
     );
   }
 }

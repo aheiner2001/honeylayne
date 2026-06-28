@@ -12,22 +12,7 @@ import 'seed.dart';
 /// the manager registers her email, she logs in with email + password and this
 /// code is no longer needed for day-to-day access.
 const kManagerPassword =
-    String.fromEnvironment('MANAGER_PASSWORD', defaultValue: 'changeme');
-
-/// Comma-separated list of Google account emails allowed into the studio.
-/// Injected at build time (MANAGER_EMAILS). If empty, any signed-in Google
-/// account is allowed — set this in `.env`/Secrets to lock it down.
-const kManagerEmails = String.fromEnvironment('MANAGER_EMAILS');
-
-bool _emailAllowed(String? email) {
-  final allow = kManagerEmails
-      .split(',')
-      .map((e) => e.trim().toLowerCase())
-      .where((e) => e.isNotEmpty)
-      .toList();
-  if (allow.isEmpty) return true; // No allowlist configured -> allow any.
-  return email != null && allow.contains(email.toLowerCase());
-}
+    String.fromEnvironment('MANAGER_PASSWORD', defaultValue: 'honeybee');
 
 /// App-wide state: catalog, site settings, manager auth. Reads/writes go
 /// through a [HoneyBackend] (local browser storage or Firebase).
@@ -35,8 +20,7 @@ class HoneyStore extends ChangeNotifier {
   HoneyStore(this._backend, {this.authEnabled = false}) {
     if (authEnabled) {
       FirebaseAuth.instance.authStateChanges().listen((user) {
-        // Only treat the manager as unlocked if their email is allowed.
-        _managerUnlocked = user != null && _emailAllowed(user.email);
+        _managerUnlocked = user != null;
         _managerEmail = user?.email;
         notifyListeners();
       });
@@ -80,9 +64,28 @@ class HoneyStore extends ChangeNotifier {
   }
 
   // ---- Manager auth ----
+  /// The access password required to open the studio. Editable from settings;
+  /// defaults to 'honeybee'.
+  String get managerPassword => _settings.managerPassword.isNotEmpty
+      ? _settings.managerPassword
+      : 'honeybee';
+
+  /// True if [input] matches the current access password.
+  bool checkManagerPassword(String input) =>
+      input.trim() == managerPassword;
+
+  /// Change the studio access password and persist it.
+  void updateManagerPassword(String password) {
+    final trimmed = password.trim();
+    if (trimmed.isEmpty) return;
+    _settings = _settings.copyWith(managerPassword: trimmed);
+    _backend.saveSettings(_settings);
+    notifyListeners();
+  }
+
   /// Local fallback gate (used only when [authEnabled] is false).
   bool unlock(String password) {
-    if (kManagerPassword.isNotEmpty && password == kManagerPassword) {
+    if (checkManagerPassword(password)) {
       _managerUnlocked = true;
       notifyListeners();
       return true;
@@ -91,16 +94,11 @@ class HoneyStore extends ChangeNotifier {
   }
 
   /// Sign in with Google (popup on web). Returns null on success, else an
-  /// error message. Rejects accounts not on the manager allowlist.
+  /// error message. The access password is checked separately at the gate.
   Future<String?> signInWithGoogle() async {
     try {
       final provider = GoogleAuthProvider();
       await FirebaseAuth.instance.signInWithPopup(provider);
-      final email = FirebaseAuth.instance.currentUser?.email;
-      if (!_emailAllowed(email)) {
-        await FirebaseAuth.instance.signOut();
-        return 'This Google account isn\'t authorized for the studio.';
-      }
       return null;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'popup-closed-by-user' ||
@@ -221,6 +219,10 @@ class HoneyStore extends ChangeNotifier {
   /// Upload any image (hero, about, product) and get back a usable URL/URI.
   Future<String> uploadImage(Uint8List bytes, String key) =>
       _backend.uploadImage(bytes, key);
+
+  /// Upload a PNG (transparency preserved) for header art/icons.
+  Future<String> uploadImagePng(Uint8List bytes, String key) =>
+      _backend.uploadImagePng(bytes, key);
 
   // ---- Products ----
   void addProduct(Product p) {

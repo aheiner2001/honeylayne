@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/store.dart';
 import '../theme/honey_theme.dart';
@@ -44,23 +47,59 @@ class SiteHeader extends StatelessWidget {
       child: ClipRect(
         child: Stack(
           children: [
+            // Decoration flying in from the top-left (bees by default).
+            Positioned(
+              top: compact ? 4 : 6,
+              left: -8,
+              child: IgnorePointer(
+                child: _DecoImage(
+                  url: settings.headerLeftImageUrl,
+                  width: compact ? 110 : 190,
+                ),
+              ),
+            ),
+            // Decoration tucked into the top-right corner (florals by default).
+            Positioned(
+              top: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: _DecoImage(
+                  url: settings.headerRightImageUrl,
+                  width: compact ? 140 : 250,
+                ),
+              ),
+            ),
             Padding(
               padding: EdgeInsets.fromLTRB(24, compact ? 14 : 18, 24, compact ? 14 : 20),
               child: Column(
                 children: [
-                  // Wordmark logo (flowers + bee + heart baked in).
+                  // Cursive wordmark with a little heart.
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: GestureDetector(
                       onTap: () => context.go('/'),
-                      child: Image.asset(
-                        'assets/images/logo_wordmark.png',
-                        height: compact ? 64 : 92,
-                        fit: BoxFit.contain,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Honey Layne',
+                            style: HoneyTheme.logoFont(size: compact ? 40 : 56),
+                          ),
+                          SizedBox(width: compact ? 6 : 10),
+                          Padding(
+                            padding: EdgeInsets.only(top: compact ? 6 : 10),
+                            child: Icon(
+                              Icons.favorite_border,
+                              size: compact ? 16 : 22,
+                              color: HoneyColors.pink,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  SizedBox(height: compact ? 8 : 12),
+                  SizedBox(height: compact ? 8 : 10),
                   // Nav centered in full width, icons pinned to the right.
                   SizedBox(
                     width: double.infinity,
@@ -72,7 +111,9 @@ class SiteHeader extends StatelessWidget {
                           active: active,
                         ),
                         if (!compact)
-                          const Positioned(right: 4, child: _UtilityIcons()),
+                          // Inset so the icons sit just left of the corner
+                          // florals (instead of hidden behind them).
+                          const Positioned(right: 140, child: _UtilityIcons()),
                       ],
                     ),
                   ),
@@ -152,41 +193,79 @@ class _NavItemState extends State<_NavItem> {
   }
 }
 
+/// The single storefront icon in the top-right that opens the Instagram shop.
 class _UtilityIcons extends StatelessWidget {
   const _UtilityIcons();
 
+  static const _defaultIcon = 'assets/images/shop_icon.png';
+
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: const [
-        _Icon(Icons.search, route: '/shop', tooltip: 'Browse'),
-        SizedBox(width: 14),
-        _Icon(Icons.person_outline, route: '/manage', tooltip: 'Manager'),
-        SizedBox(width: 14),
-        _Icon(Icons.shopping_bag_outlined, route: '/shop', tooltip: 'Shop'),
-      ],
+    final settings = context.watch<HoneyStore>().settings;
+    final iconUrl = settings.headerShopIconUrl;
+    // Tint the default line-art icon to match the theme; show custom uploads
+    // (which may be full-color PNGs) as-is.
+    final tint = iconUrl == _defaultIcon ? HoneyColors.pinkDeep : null;
+    return Tooltip(
+      message: 'Shop on Instagram',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => _openShop(settings.contactInstagram),
+          child: _DecoImage(url: iconUrl, width: 30, height: 30, color: tint),
+        ),
+      ),
     );
   }
 }
 
-class _Icon extends StatelessWidget {
-  final IconData icon;
-  final String route;
-  final String tooltip;
-  const _Icon(this.icon, {required this.route, required this.tooltip});
+Future<void> _openShop(String url) async {
+  final target =
+      url.isEmpty ? 'https://www.instagram.com/_honeylayne/' : url;
+  final uri = Uri.tryParse(target);
+  if (uri == null) return;
+  await launchUrl(uri, mode: LaunchMode.externalApplication);
+}
+
+/// Renders a header decoration from an asset path, https URL, or uploaded
+/// data URI. Shows nothing when the url is empty.
+class _DecoImage extends StatelessWidget {
+  final String url;
+  final double? width;
+  final double? height;
+  final Color? color;
+  const _DecoImage({required this.url, this.width, this.height, this.color});
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: () => context.go(route),
-          child: Icon(icon, size: 20, color: HoneyColors.pinkDeep),
-        ),
-      ),
-    );
+    if (url.isEmpty) return const SizedBox.shrink();
+    const fit = BoxFit.contain;
+    if (url.startsWith('data:')) {
+      try {
+        final bytes = base64Decode(url.substring(url.indexOf(',') + 1));
+        return Image.memory(bytes,
+            width: width,
+            height: height,
+            color: color,
+            fit: fit,
+            gaplessPlayback: true);
+      } catch (_) {
+        return const SizedBox.shrink();
+      }
+    }
+    if (url.startsWith('http')) {
+      return Image.network(url,
+          width: width,
+          height: height,
+          color: color,
+          fit: fit,
+          errorBuilder: (_, _, _) => const SizedBox.shrink());
+    }
+    return Image.asset(url,
+        width: width,
+        height: height,
+        color: color,
+        fit: fit,
+        errorBuilder: (_, _, _) => const SizedBox.shrink());
   }
 }

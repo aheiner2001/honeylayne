@@ -34,15 +34,22 @@ class _PasswordGate extends StatefulWidget {
 
 class _PasswordGateState extends State<_PasswordGate> {
   final _legacy = TextEditingController();
+  final _gatePw = TextEditingController();
   bool _busy = false;
   String? _error;
 
   Future<void> _signInGoogle() async {
+    final store = context.read<HoneyStore>();
+    // Require the access password before opening the Google popup.
+    if (!store.checkManagerPassword(_gatePw.text)) {
+      setState(() => _error = 'Incorrect access password.');
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
-    final err = await context.read<HoneyStore>().signInWithGoogle();
+    final err = await store.signInWithGoogle();
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -112,12 +119,26 @@ class _PasswordGateState extends State<_PasswordGate> {
     );
   }
 
-  // Google sign-in (used when Firebase is configured).
+  // Access password + Google sign-in (used when Firebase is configured).
   List<Widget> _googleForm() => [
-        Text('Sign in with your authorized Google account.',
+        Text('Enter the access password, then sign in with Google.',
             textAlign: TextAlign.center,
             style: HoneyTheme.sans(size: 13, color: HoneyColors.textSoft)),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _gatePw,
+          obscureText: true,
+          onSubmitted: (_) => _signInGoogle(),
+          decoration: InputDecoration(
+            hintText: 'Access password',
+            filled: true,
+            fillColor: HoneyColors.cream,
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none),
+          ),
+        ),
+        const SizedBox(height: 16),
         if (_busy)
           const _Spinner()
         else
@@ -230,6 +251,15 @@ class _Dashboard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _SectionCard(
+                    title: 'Access password',
+                    subtitle:
+                        'The password required (with Google sign-in) to open this studio.',
+                    child: _PasswordChanger(
+                        key: ValueKey('pw_${store.settings.managerPassword}'),
+                        current: store.managerPassword),
+                  ),
+                  const SizedBox(height: 22),
+                  _SectionCard(
                     title: 'Menu visibility',
                     subtitle:
                         'Turn the top-bar links on or off. Home and Shop All always stay on.',
@@ -241,6 +271,15 @@ class _Dashboard extends StatelessWidget {
                     subtitle:
                         'Show or hide whole sections on each page.',
                     child: _SectionToggles(settings: store.settings),
+                  ),
+                  const SizedBox(height: 22),
+                  _SectionCard(
+                    title: 'Header decorations',
+                    subtitle:
+                        'Upload your own PNGs for the top-left art, top-right art, and shop icon. Transparent PNGs look best.',
+                    child: _HeaderEditor(
+                        key: ValueKey('header_${store.settings.hashCode}'),
+                        settings: store.settings),
                   ),
                   const SizedBox(height: 22),
                   _SectionCard(
@@ -512,17 +551,88 @@ class _SectionToggles extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+/// Lets the manager view and change the studio access password.
+class _PasswordChanger extends StatefulWidget {
+  final String current;
+  const _PasswordChanger({super.key, required this.current});
+
+  @override
+  State<_PasswordChanger> createState() => _PasswordChangerState();
+}
+
+class _PasswordChangerState extends State<_PasswordChanger> {
+  late final _controller = TextEditingController(text: widget.current);
+  bool _obscure = true;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final value = _controller.text.trim();
+    if (value.isEmpty) return;
+    context.read<HoneyStore>().updateManagerPassword(value);
+    FocusScope.of(context).unfocus();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Access password updated.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _controller,
+            obscureText: _obscure,
+            onSubmitted: (_) => _save(),
+            decoration: InputDecoration(
+              hintText: 'Access password',
+              filled: true,
+              fillColor: HoneyColors.cream,
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none),
+              suffixIcon: IconButton(
+                icon: Icon(
+                    _obscure ? Icons.visibility_off : Icons.visibility,
+                    size: 20,
+                    color: HoneyColors.pink),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: _PinkButton(label: 'SAVE', onTap: _save),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 /// A photo box that uploads a new image and reports the resulting URL.
 class _ImagePickField extends StatefulWidget {
   final String label;
   final String imageUrl;
   final String storageKey;
   final ValueChanged<String> onChanged;
+  /// Preserve transparency: pick the file without re-encoding to JPEG and
+  /// upload it as a PNG. Use for header art and icons.
+  final bool png;
   const _ImagePickField({
     required this.label,
     required this.imageUrl,
     required this.storageKey,
     required this.onChanged,
+    this.png = false,
   });
 
   @override
@@ -535,18 +645,32 @@ class _ImagePickFieldState extends State<_ImagePickField> {
 
   Future<void> _pick() async {
     final store = context.read<HoneyStore>();
-    final file = await ImagePicker()
-        .pickImage(source: ImageSource.gallery, maxWidth: 1400, imageQuality: 82);
+    final messenger = ScaffoldMessenger.of(context);
+    final picker = ImagePicker();
+    // For PNG art, skip maxWidth/imageQuality so transparency is preserved.
+    final file = widget.png
+        ? await picker.pickImage(source: ImageSource.gallery)
+        : await picker.pickImage(
+            source: ImageSource.gallery, maxWidth: 1400, imageQuality: 82);
     if (file == null) return;
     final bytes = await file.readAsBytes();
     setState(() => _uploading = true);
-    final url = await store.uploadImage(bytes, widget.storageKey);
-    if (!mounted) return;
-    setState(() {
-      _url = url;
-      _uploading = false;
-    });
-    widget.onChanged(url);
+    try {
+      final url = widget.png
+          ? await store.uploadImagePng(bytes, widget.storageKey)
+          : await store.uploadImage(bytes, widget.storageKey);
+      if (!mounted) return;
+      setState(() {
+        _url = url;
+        _uploading = false;
+      });
+      widget.onChanged(url);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _uploading = false);
+      messenger.showSnackBar(
+          SnackBar(content: Text('Image upload failed: $e')));
+    }
   }
 
   @override
@@ -587,6 +711,89 @@ class _ImagePickFieldState extends State<_ImagePickField> {
                       )
                     : ProductImage(imageUrl: _url),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+class _HeaderEditor extends StatefulWidget {
+  final SiteSettings settings;
+  const _HeaderEditor({super.key, required this.settings});
+  @override
+  State<_HeaderEditor> createState() => _HeaderEditorState();
+}
+
+class _HeaderEditorState extends State<_HeaderEditor> {
+  late String _left = widget.settings.headerLeftImageUrl;
+  late String _right = widget.settings.headerRightImageUrl;
+  late String _icon = widget.settings.headerShopIconUrl;
+
+  void _save() {
+    final store = context.read<HoneyStore>();
+    store.updateSettings(store.settings.copyWith(
+      headerLeftImageUrl: _left,
+      headerRightImageUrl: _right,
+      headerShopIconUrl: _icon,
+    ));
+    _toast(context);
+  }
+
+  void _reset() {
+    final store = context.read<HoneyStore>();
+    store.updateSettings(store.settings.copyWith(
+      headerLeftImageUrl: 'assets/images/bees_trail.png',
+      headerRightImageUrl: 'assets/images/floral_topright.png',
+      headerShopIconUrl: 'assets/images/shop_icon.png',
+    ));
+    _toast(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 18,
+          runSpacing: 18,
+          children: [
+            _ImagePickField(
+              label: 'Top-left art',
+              imageUrl: _left,
+              storageKey: 'header_left',
+              png: true,
+              onChanged: (u) => _left = u,
+            ),
+            _ImagePickField(
+              label: 'Top-right art',
+              imageUrl: _right,
+              storageKey: 'header_right',
+              png: true,
+              onChanged: (u) => _right = u,
+            ),
+            _ImagePickField(
+              label: 'Shop icon',
+              imageUrl: _icon,
+              storageKey: 'header_shop_icon',
+              png: true,
+              onChanged: (u) => _icon = u,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: _reset,
+              child: Text('Reset to defaults',
+                  style: HoneyTheme.sans(size: 13, color: HoneyColors.pink)),
+            ),
+            const SizedBox(width: 12),
+            _PinkButton(label: 'SAVE HEADER', onTap: _save),
+          ],
         ),
       ],
     );
@@ -1075,6 +1282,7 @@ class _ProductEditorState extends State<_ProductEditor> {
   bool _uploading = false;
 
   Future<void> _pickImage() async {
+    final messenger = ScaffoldMessenger.of(context);
     final picker = ImagePicker();
     final file = await picker.pickImage(
         source: ImageSource.gallery, maxWidth: 1200, imageQuality: 82);
@@ -1082,12 +1290,19 @@ class _ProductEditorState extends State<_ProductEditor> {
     final bytes = await file.readAsBytes();
     final id = widget.existing?.id ?? _pendingId;
     setState(() => _uploading = true);
-    final url = await widget.store.uploadProductImage(bytes, id);
-    if (!mounted) return;
-    setState(() {
-      _imageUrl = url;
-      _uploading = false;
-    });
+    try {
+      final url = await widget.store.uploadProductImage(bytes, id);
+      if (!mounted) return;
+      setState(() {
+        _imageUrl = url;
+        _uploading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _uploading = false);
+      messenger.showSnackBar(
+          SnackBar(content: Text('Image upload failed: $e')));
+    }
   }
 
   void _save() {

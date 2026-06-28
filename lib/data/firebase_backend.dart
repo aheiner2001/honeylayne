@@ -62,4 +62,11 @@ class FirebaseBackend implements HoneyBackend {
         bytes, SettableMetadata(contentType: 'image/jpeg'));
     return ref.getDownloadURL();
   }
+
+  @override
+  Future<String> uploadImagePng(Uint8List bytes, String key) async {
+    final ref = _storage.ref('header/$key.png');
+    await ref.putData(bytes, SettableMetadata(contentType: 'image/png'));
+    return ref.getDownloadURL();
+  }
 }
