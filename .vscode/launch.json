@@ -2,19 +2,11 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Honey Layne (Chrome, .env)",
+      "name": "Honey Layne (Vite dev, Chrome)",
       "request": "launch",
-      "type": "dart",
-      "deviceId": "chrome",
-      "toolArgs": ["--dart-define-from-file=.env"]
-    },
-    {
-      "name": "Honey Layne (Chrome, profile)",
-      "request": "launch",
-      "type": "dart",
-      "deviceId": "chrome",
-      "flutterMode": "profile",
-      "toolArgs": ["--dart-define-from-file=.env"]
+      "type": "chrome",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/src"
     }
   ]
 }

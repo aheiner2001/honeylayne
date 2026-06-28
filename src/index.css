@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background-color: #fcebea; /* blush */
+    color: #6e5b57; /* ink */
+    font-family: 'Quicksand', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+@layer utilities {
+  /* Reusable type styles mirroring the Flutter theme helpers. */
+  .font-logo {
+    font-family: 'Allura', cursive;
+    color: #e88aa0;
+    line-height: 1;
+  }
+  .font-script {
+    font-family: 'Dancing Script', cursive;
+    font-weight: 700;
+    color: #e7849b;
+    line-height: 1.05;
+  }
+}
