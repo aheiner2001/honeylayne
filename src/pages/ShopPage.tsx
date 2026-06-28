@@ -5,6 +5,7 @@ import { useStore } from '../store/HoneyStore';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
 import { ProductCard } from '../components/ProductCard';
+import { PageDecor } from '../components/PageDecor';
 
 export function ShopPage() {
   const { category } = useParams<{ category?: string }>();
@@ -15,7 +16,8 @@ export function ShopPage() {
   const active = category ?? 'Shop All';
 
   return (
-    <div className="min-h-screen bg-blush">
+    <div className="relative isolate min-h-screen overflow-hidden bg-blush">
+      <PageDecor sprigs={false} />
       <SiteHeader active={active} />
 
       <div className="px-4 pb-2 pt-7 text-center md:px-10 md:pt-11">

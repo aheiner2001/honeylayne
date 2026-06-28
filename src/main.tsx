@@ -4,13 +4,16 @@ import { BrowserRouter } from 'react-router-dom';
 
 import App from './App';
 import { HoneyStoreProvider } from './store/HoneyStore';
+import { CartProvider } from './store/CartStore';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <HoneyStoreProvider>
-        <App />
+        <CartProvider>
+          <App />
+        </CartProvider>
       </HoneyStoreProvider>
     </BrowserRouter>
   </StrictMode>,

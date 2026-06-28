@@ -10,6 +10,7 @@ import {
   Trash2,
   Camera,
   ChevronDown,
+  X,
 } from 'lucide-react';
 
 import { useStore } from '../store/HoneyStore';
@@ -40,6 +41,7 @@ import {
 } from '../components/manager/ui';
 import { ProductImage } from '../components/ProductImage';
 import { FeatureIcon, SocialIcon } from '../components/icons';
+import { prepareImageForUpload } from '../lib/util';
 
 export function ManagerPage() {
   const store = useStore();
@@ -712,6 +714,7 @@ function ProductList({
             <p className="font-cormorant text-lg text-pinkDeep">{p.name}</p>
             <p className="font-quicksand text-xs text-inkSoft">
               {p.category}  •  ${p.price.toFixed(2)}
+              {p.sold && <span className="ml-1 font-semibold text-pinkDeep">• Sold</span>}
             </p>
           </div>
           <button type="button" onClick={() => onEdit(p)} className="text-pink">
@@ -743,16 +746,25 @@ function ProductEditor({
   const [price, setPrice] = useState(existing ? existing.price.toFixed(2) : '');
   const [instagram, setInstagram] = useState(existing?.instagramUrl ?? '');
   const [category, setCategory] = useState(existing?.category ?? 'Dresses');
-  const [imageUrl, setImageUrl] = useState(existing?.imageUrl ?? '');
+  const [size, setSize] = useState(existing?.size ?? '');
+  const [description, setDescription] = useState(existing?.description ?? '');
+  const [images, setImages] = useState<string[]>(
+    existing?.images?.length ? existing.images : existing?.imageUrl ? [existing.imageUrl] : [],
+  );
   const [favorite, setFavorite] = useState(existing?.favorite ?? true);
+  const [sold, setSold] = useState(existing?.sold ?? false);
   const [uploading, setUploading] = useState(false);
 
-  const pick = async (file: File | undefined) => {
-    if (!file) return;
+  const pick = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
     setUploading(true);
     try {
-      const url = await store.uploadProductImage(file, pendingId.current);
-      setImageUrl(url);
+      for (const file of Array.from(files)) {
+        const prepared = await prepareImageForUpload(file);
+        const key = `${pendingId.current}-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+        const url = await store.uploadProductImage(prepared, key);
+        setImages((prev) => [...prev, url]);
+      }
     } catch (e) {
       toast(`Image upload failed: ${e}`);
     } finally {
@@ -760,15 +772,29 @@ function ProductEditor({
     }
   };
 
+  const removeImage = (idx: number) => setImages((prev) => prev.filter((_, i) => i !== idx));
+  const makeCover = (idx: number) =>
+    setImages((prev) => {
+      if (idx <= 0) return prev;
+      const next = [...prev];
+      const [picked] = next.splice(idx, 1);
+      next.unshift(picked);
+      return next;
+    });
+
   const save = () => {
     const product: Product = {
       id: pendingId.current,
       name: name.trim() || 'New Piece',
       price: parseFloat(price.trim()) || 0,
       category,
-      imageUrl,
+      size: size.trim(),
+      description: description.trim(),
+      imageUrl: images[0] ?? '',
+      images,
       instagramUrl: instagram.trim(),
       favorite,
+      sold,
     };
     if (existing) store.updateProduct(product);
     else store.addProduct(product);
@@ -787,29 +813,66 @@ function ProductEditor({
         <h2 className="font-cormorant text-2xl font-semibold text-pinkDeep">
           {existing ? 'Edit product' : 'Add product'}
         </h2>
-        <div className="mt-[18px] flex justify-center">
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="flex h-[180px] w-[150px] items-center justify-center overflow-hidden rounded-xl border-[1.4px] border-pinkSoft bg-cream"
-          >
-            {uploading ? (
-              <span className="h-6 w-6 animate-spin rounded-full border-2 border-pink border-t-transparent" />
-            ) : imageUrl ? (
-              <ProductImage imageUrl={imageUrl} className="h-full w-full" />
-            ) : (
-              <span className="flex flex-col items-center text-pink">
-                <Camera size={30} />
-                <span className="mt-2 font-quicksand text-[13px]">Add photo</span>
-              </span>
-            )}
-          </button>
+        <div className="mt-[18px]">
+          <div className="flex flex-wrap gap-2.5">
+            {images.map((src, i) => (
+              <div
+                key={`${src}-${i}`}
+                className="relative h-[120px] w-[100px] overflow-hidden rounded-xl border-[1.4px] border-pinkSoft bg-cream"
+              >
+                <ProductImage imageUrl={src} className="h-full w-full" />
+                {i === 0 ? (
+                  <span className="absolute left-1 top-1 rounded-full bg-pinkDeep px-2 py-0.5 font-quicksand text-[10px] font-semibold text-white">
+                    Cover
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => makeCover(i)}
+                    className="absolute left-1 top-1 rounded-full bg-white/85 px-2 py-0.5 font-quicksand text-[10px] font-semibold text-pinkDeep hover:bg-white"
+                  >
+                    Cover
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeImage(i)}
+                  aria-label="Remove image"
+                  className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white/85 text-pinkDeep hover:bg-white"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="flex h-[120px] w-[100px] flex-col items-center justify-center rounded-xl border-[1.4px] border-dashed border-pinkSoft bg-cream text-pink disabled:opacity-60"
+            >
+              {uploading ? (
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-pink border-t-transparent" />
+              ) : (
+                <>
+                  <Camera size={26} />
+                  <span className="mt-1.5 font-quicksand text-[12px]">Add photos</span>
+                </>
+              )}
+            </button>
+          </div>
+          <p className="mt-2 font-quicksand text-[11px] text-inkSoft">
+            Add several photos — buyers can swipe through them. The first is the cover.
+          </p>
           <input
             ref={fileRef}
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
-            onChange={(e) => pick(e.target.files?.[0] ?? undefined)}
+            onChange={(e) => {
+              pick(e.target.files);
+              e.target.value = '';
+            }}
           />
         </div>
         <div className="mt-[18px] flex flex-col gap-3">
@@ -838,6 +901,20 @@ function ProductEditor({
             </div>
           </div>
           <Field
+            label="Size"
+            value={size}
+            onChange={setSize}
+            hint="e.g. Small, M, One size, Fits 4–6"
+          />
+          <Field
+            label="Description"
+            value={description}
+            onChange={setDescription}
+            multiline
+            rows={4}
+            hint="Fabric, fit, measurements, care, anything special…"
+          />
+          <Field
             label="Instagram link"
             value={instagram}
             onChange={setInstagram}
@@ -849,12 +926,18 @@ function ProductEditor({
               Show in “Shop Our Favorites”
             </span>
           </div>
+          <div className="flex items-center gap-2">
+            <Switch checked={sold} onChange={setSold} />
+            <span className="font-quicksand text-[13px] text-ink">
+              Mark as sold (hides the Add to cart button)
+            </span>
+          </div>
         </div>
         <div className="mt-[18px] flex items-center justify-end gap-2.5">
           <button type="button" onClick={onClose} className="font-quicksand text-sm text-inkSoft">
             Cancel
           </button>
-          <PinkButton label="SAVE" onClick={save} />
+          <PinkButton label={uploading ? 'UPLOADING…' : 'SAVE'} onClick={save} disabled={uploading} />
         </div>
       </div>
     </div>

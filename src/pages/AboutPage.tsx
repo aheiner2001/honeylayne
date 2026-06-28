@@ -3,7 +3,9 @@ import { sectionOn } from '../types';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
 import { ProductImage } from '../components/ProductImage';
+import { PageDecor } from '../components/PageDecor';
 import { FeatureIcon } from '../components/icons';
+import { resolveSrc } from '../lib/util';
 
 function StoryPhoto({ imageUrl }: { imageUrl: string }) {
   return (
@@ -14,6 +16,20 @@ function StoryPhoto({ imageUrl }: { imageUrl: string }) {
         </div>
       </div>
       <div className="absolute -top-3 left-1/2 h-[26px] w-24 -translate-x-1/2 -rotate-2 bg-pinkSoft/80" />
+
+      {/* Flowers hugging the picture frame */}
+      <img
+        src={resolveSrc('assets/images/deco_corner.png')}
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute -left-12 -top-12 w-28 -scale-x-100 md:w-40"
+      />
+      <img
+        src={resolveSrc('assets/images/deco_sprig.png')}
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute -bottom-8 -right-6 w-16 rotate-12 md:w-24"
+      />
     </div>
   );
 }
@@ -22,7 +38,8 @@ export function AboutPage() {
   const { settings } = useStore();
 
   return (
-    <div className="min-h-screen bg-blush">
+    <div className="relative isolate min-h-screen overflow-hidden bg-blush">
+      <PageDecor />
       <SiteHeader active="About" />
 
       {sectionOn(settings, 'about.story') && (

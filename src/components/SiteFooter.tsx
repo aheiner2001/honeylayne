@@ -2,8 +2,35 @@ import { useNavigate } from 'react-router-dom';
 
 import { useStore } from '../store/HoneyStore';
 import { sectionOn, type FooterColumn, type FooterLink } from '../types';
-import { openExternal } from '../lib/util';
+import { openExternal, resolveSrc } from '../lib/util';
 import { SocialIcon } from './icons';
+
+function FooterDecor() {
+  return (
+    <>
+      {/* Vines — behind the footer content */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <img
+          src={resolveSrc('assets/images/deco_vine.png')}
+          alt=""
+          className="absolute -left-8 -top-6 w-64 opacity-70 md:w-96"
+        />
+        <img
+          src={resolveSrc('assets/images/deco_vine.png')}
+          alt=""
+          className="absolute -right-8 -top-6 hidden w-64 -scale-x-100 opacity-70 md:block md:w-96"
+        />
+      </div>
+      {/* Bee — floating on top */}
+      <img
+        src={resolveSrc('assets/images/deco_bee.png')}
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute bottom-4 right-[8%] z-20 w-16 -scale-x-100 rotate-3 md:w-20"
+      />
+    </>
+  );
+}
 
 function useGo() {
   const navigate = useNavigate();
@@ -82,7 +109,8 @@ export function SiteFooter() {
   );
 
   return (
-    <footer className="w-full bg-gradient-to-b from-cream to-footerBottom">
+    <footer className="relative isolate w-full overflow-hidden bg-gradient-to-b from-cream to-footerBottom">
+      <FooterDecor />
       {/* Mobile: stacked + centered. */}
       <div className="flex flex-col items-center px-6 py-9 md:hidden">
         {brand}

@@ -7,6 +7,7 @@ import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
 import { ProductCard } from '../components/ProductCard';
 import { ProductImage } from '../components/ProductImage';
+import { PageDecor } from '../components/PageDecor';
 import { resolveSrc } from '../lib/util';
 
 function ShopNowButton({ label }: { label: string }) {
@@ -41,12 +42,15 @@ export function HomePage() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-blush">
-      <SiteHeader active="Home" />
+    <div className="relative isolate min-h-screen overflow-hidden bg-blush">
+      <PageDecor />
+      {/* Soft yellow at the top fading into blush by ~mid-hero. */}
+      <div className="bg-gradient-to-b from-[#FCEFB0] via-blush via-[55%] to-blush">
+        <SiteHeader active="Home" flat />
 
-      {sectionOn(settings, 'home.hero') && (
-        <div className="px-3.5 py-4 md:px-7 md:py-5">
-          <div className="relative overflow-hidden rounded-[18px] bg-heroPanel">
+        {sectionOn(settings, 'home.hero') && (
+          <div className="px-3.5 py-4 md:px-7 md:py-5">
+            <div className="relative overflow-hidden rounded-[18px] bg-heroPanel">
             {/* Floral accent, bottom-left, mirrored. */}
             <img
               src={resolveSrc('assets/images/floral_topright.png')}
@@ -73,7 +77,8 @@ export function HomePage() {
             </div>
           </div>
         </div>
-      )}
+        )}
+      </div>
 
       {sectionOn(settings, 'home.favorites') && (
         <section className="px-3.5 md:px-7">

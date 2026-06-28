@@ -5,32 +5,50 @@ export interface Product {
   name: string;
   price: number;
   category: string; // Dresses, Tops, Bottoms, Accessories
-  imageUrl: string; // network url, asset path, or data uri
+  size: string; // e.g. "Small", "M", "One size", "Fits 4-6"
+  description: string; // details about the piece
+  imageUrl: string; // primary image (kept in sync with images[0] for back-compat)
+  images: string[]; // gallery: network urls, asset paths, or data uris
   instagramUrl: string; // hyperlink to buy / IG post
   favorite: boolean; // featured in "Shop Our Favorites"
+  sold: boolean; // one-of-a-kind: hidden from buying once sold
 }
 
 export function productFromJson(j: any): Product {
+  const rawImages: string[] = Array.isArray(j.images)
+    ? j.images.map((x: any) => String(x)).filter(Boolean)
+    : [];
+  const primary = (j.imageUrl as string) || rawImages[0] || '';
+  const images = rawImages.length > 0 ? rawImages : primary ? [primary] : [];
   return {
     id: String(j.id),
     name: String(j.name ?? ''),
     price: Number(j.price ?? 0),
     category: (j.category as string) || 'Dresses',
-    imageUrl: (j.imageUrl as string) || '',
+    size: (j.size as string) || '',
+    description: (j.description as string) || '',
+    imageUrl: images[0] ?? '',
+    images,
     instagramUrl: (j.instagramUrl as string) || '',
     favorite: j.favorite ?? true,
+    sold: j.sold ?? false,
   };
 }
 
 export function productToJson(p: Product): Record<string, unknown> {
+  const images = p.images && p.images.length > 0 ? p.images : p.imageUrl ? [p.imageUrl] : [];
   return {
     id: p.id,
     name: p.name,
     price: p.price,
     category: p.category,
-    imageUrl: p.imageUrl,
+    size: p.size,
+    description: p.description,
+    imageUrl: images[0] ?? '',
+    images,
     instagramUrl: p.instagramUrl,
     favorite: p.favorite,
+    sold: p.sold,
   };
 }
 
